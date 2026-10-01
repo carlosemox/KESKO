@@ -64,3 +64,10 @@
 - `RUN_DB_TESTS=1 CI=true pnpm test` passed 29/29 tests across 7 files; `CI=true pnpm typecheck` passed.
 - Ruling: keep the local bearer adapter explicitly development-only; production Supabase Auth/JWKS validation remains outside S-001.
 - Ruling: do not run `supabase db reset` without explicit GO because reset is destructive; forward-only migrations were sufficient for this run.
+
+## Final closure addendum — 2026-10-01
+
+- Ruling: optimize RLS helper calls with statement-level `select` wrappers — advisors identified avoidable per-row evaluation; the cost if wrong is a small migration and query-plan change, covered by the full RLS suite.
+- Root cause resolved: RLS policies invoked stable auth/helpers directly per row; evidence: Supabase advisors warned on three KESKO policies; correction: migration `0006_s001_rls_initplan.sql`; regression: advisors no longer report KESKO policy warnings and 29/29 tests pass.
+- Root cause resolved: migration 0006 initially existed only in the worktree; evidence: independent Sentinel `CORRIGIR`; correction: commit `fb0c23b`; regression: scoped Sentinel re-review `ADDRESSED` and `migration list --local` shows 0001–0006.
+- Remaining external blocker: Gate D promotion requires Cadu GO for push/merge/deploy; no technical workaround is authorized.
