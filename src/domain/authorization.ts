@@ -34,7 +34,6 @@ export function can(
 
   return permissionsByRole[context.role].has(permission);
 }
-
 export function assertPermission(
   context: TenantContext,
   permission: TenantPermission,
@@ -47,4 +46,3 @@ export function assertPermission(
     throw new DomainError("FORBIDDEN", "The current role cannot perform this action");
   }
 }
-

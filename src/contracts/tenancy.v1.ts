@@ -15,7 +15,6 @@ export interface TenantContext {
   tenantId?: string;
   role?: TenantRole;
 }
-
 export interface TenantMembership {
   tenantId: string;
   userId: string;
@@ -32,4 +31,3 @@ export interface Brand extends BrandInput {
   id: string;
   tenantId: string;
 }
-
