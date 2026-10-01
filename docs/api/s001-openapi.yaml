@@ -1,0 +1,80 @@
+openapi: 3.0.3
+info:
+  title: KESKO Marketing OS — S-001 Tenancy API
+  version: 1.0.0
+  description: Local Supabase OSS vertical for tenant, owner and brand onboarding.
+servers:
+  - url: http://localhost:3000
+security:
+  - bearerAuth: []
+paths:
+  /v1/tenants:
+    post:
+      summary: Create a tenant and its authenticated owner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TenantInput' }
+      responses:
+        '201': { description: Tenant created }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/tenants/{tenantId}:
+    get:
+      summary: Read a tenant visible to the authenticated member
+      parameters: [{ $ref: '#/components/parameters/tenantId' }]
+      responses:
+        '200': { description: Tenant returned }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/tenants/{tenantId}/brands:
+    parameters: [{ $ref: '#/components/parameters/tenantId' }]
+    get:
+      summary: List brands in an authorized tenant
+      responses:
+        '200': { description: Brands returned }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      summary: Create a brand as owner or admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BrandInput' }
+      responses:
+        '201': { description: Brand created and audited }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer }
+  parameters:
+    tenantId:
+      name: tenantId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    TenantInput:
+      type: object
+      additionalProperties: false
+      required: [name, slug]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        slug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+    BrandInput:
+      type: object
+      additionalProperties: false
+      required: [name, slug]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        slug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+  responses:
+    BadRequest: { description: Invalid input }
+    Unauthorized: { description: Missing or invalid bearer identity }
+    Forbidden: { description: Insufficient tenant role }
+    NotFound: { description: Resource is not visible to the caller }

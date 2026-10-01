@@ -55,3 +55,18 @@ export function validateBrandInput(input: BrandInput): BrandInput {
 
   return { name, slug };
 }
+
+export function validateTenantInput(input: { name: string; slug: string }): { name: string; slug: string } {
+  const name = input.name.trim();
+  const slug = input.slug.trim().toLowerCase();
+
+  if (name.length < 1 || name.length > 120) {
+    throw new DomainError("INVALID_INPUT", "Tenant name must contain 1 to 120 characters");
+  }
+
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+    throw new DomainError("INVALID_INPUT", "Tenant slug must be lowercase kebab-case");
+  }
+
+  return { name, slug };
+}
