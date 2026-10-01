@@ -2,6 +2,9 @@ import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from "pg
 import type { TenantContext } from "../contracts/tenancy.v1.js";
 
 export function createDbPool(connectionString = process.env.DATABASE_URL ?? "postgresql://postgres:postgres@127.0.0.1:54322/postgres"): Pool {
+  if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is required in production");
+  }
   return new Pool({ connectionString, max: 5 });
 }
 

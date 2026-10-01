@@ -11,7 +11,11 @@ export function userContextFromRequest(request: FastifyRequest): TenantContext {
   }
 
   const token = header.slice("Bearer ".length).trim();
-  if (!token.startsWith("local:") || !UUID.test(token.slice("local:".length))) {
+  if (
+    process.env.NODE_ENV === "production"
+    || !token.startsWith("local:")
+    || !UUID.test(token.slice("local:".length))
+  ) {
     throw new DomainError("UNAUTHENTICATED", "The bearer identity is invalid");
   }
 

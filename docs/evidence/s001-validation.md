@@ -9,7 +9,7 @@ Provider: Supabase OSS / local PostgreSQL 17.11
 Validation commands executed on 2026-10-01:
 
 - `CI=true pnpm exec supabase db push --local --yes --skip-vault` — migrations 0003, 0004 and 0005 applied forward-only.
-- `RUN_DB_TESTS=1 CI=true pnpm test` — 7 files, 28 tests passed.
+- `RUN_DB_TESTS=1 CI=true pnpm test` — 7 files, 29 tests passed.
 - `CI=true pnpm typecheck` — passed.
 - `git diff --check` — passed.
 - Live HTTP smoke test — tenant creation, tenant read and brand creation passed against PostgreSQL/RLS.

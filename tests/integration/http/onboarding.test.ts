@@ -167,6 +167,27 @@ describe("S-001 HTTP onboarding", () => {
     expect(fixture.state.createTenantCalls).toBe(0);
   });
 
+  it("fails closed for the local bearer adapter in production", async () => {
+    const fixture = repositoryFixture();
+    const app = buildApp({ repositories: fixture.repositories });
+    apps.push(app);
+    const previous = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/v1/tenants",
+        headers: { authorization: `Bearer local:${ownerId}` },
+        payload: { name: "Acme Marketing", slug: "acme-marketing" },
+      });
+      expect(response.statusCode).toBe(401);
+      expect(fixture.state.createTenantCalls).toBe(0);
+    } finally {
+      if (previous === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = previous;
+    }
+  });
+
   it("rejects invalid tenant input before invoking persistence", async () => {
     const fixture = repositoryFixture();
     const app = buildApp({ repositories: fixture.repositories });
