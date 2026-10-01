@@ -1,0 +1,14 @@
+{
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"test": "vitest run",
+		"typecheck": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"@types/node": "latest",
+		"supabase": "2.119.0",
+		"typescript": "latest",
+		"vitest": "latest"
+	}
+}
