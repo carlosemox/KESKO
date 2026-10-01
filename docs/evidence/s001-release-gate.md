@@ -2,7 +2,8 @@
 
 Decision: **READY_FOR_REVIEW**
 
-- Branch is `codex/S-001-foundation-tenancy`; HEAD is `fb0c23b`.
+- Branch is `codex/S-001-foundation-tenancy`; implementation SHA reviewed is `fb0c23b`.
+- The current branch also contains the evidence-only commit `096cdba`.
 - `main`/Production were not changed.
 - Local PostgreSQL/Supabase OSS migrations 0001–0006 are applied forward-only.
 - `RUN_DB_TESTS=1 CI=true pnpm test`: 29/29 passed.
