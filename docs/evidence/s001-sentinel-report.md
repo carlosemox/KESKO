@@ -1,8 +1,8 @@
 # S-001 Sentinel report
 
-Sentinel: revisão independente pendente para o estado pós-0006
+Sentinel: agente independente `Banach` (`01a0f7e0-c8b7-7a32-be12-bf4091015ca8`)
 Reviewed branch: `codex/S-001-foundation-tenancy`
-Reviewed SHA: pending migration 0006 commit
+Reviewed SHA: `fb0c23b`
 Scope: `origin/main..HEAD`, migrations 0001–0006, tenancy/auth/db code, tests and evidence.
 
 ## Parecer
@@ -16,5 +16,6 @@ Verified:
 - Cross-tenant access and insufficient roles are denied by the API/database tests.
 - Successful mutations record actor, tenant, entity and `correlation_id`.
 - No secrets, push, merge or deploy were performed.
+- Previous finding — untracked migration 0006 — was re-reviewed as **ADDRESSED** after commit `fb0c23b`.
 
 Limit: real OAuth/JWKS authentication is not implemented; this approval does not authorize Production exposure.

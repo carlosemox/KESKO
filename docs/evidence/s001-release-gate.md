@@ -2,7 +2,7 @@
 
 Decision: **READY_FOR_REVIEW**
 
-- Branch is `codex/S-001-foundation-tenancy`; current implementation HEAD is pending the migration 0006 evidence commit.
+- Branch is `codex/S-001-foundation-tenancy`; HEAD is `fb0c23b`.
 - `main`/Production were not changed.
 - Local PostgreSQL/Supabase OSS migrations 0001–0006 are applied forward-only.
 - `RUN_DB_TESTS=1 CI=true pnpm test`: 29/29 passed.
