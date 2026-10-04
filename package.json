@@ -1,0 +1,25 @@
+{
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit --noUnusedLocals --noUnusedParameters && prettier --check src tests scripts *.json vitest.config.ts",
+    "format": "prettier --write src tests scripts *.json vitest.config.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "test:postgres": "node scripts/test-postgres.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.4",
+    "@types/pg": "^8.23.1",
+    "prettier": "3.6.2",
+    "supabase": "2.119.0",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  },
+  "dependencies": {
+    "fastify": "5.12.5",
+    "pg": "^8.23.0"
+  }
+}
