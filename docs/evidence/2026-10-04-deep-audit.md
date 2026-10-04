@@ -52,7 +52,7 @@ somente ao Supabase local por `--local --skip-vault --yes`, sem seed/reset.
   foi removido; apenas dados sintéticos descartáveis foram eliminados.
 - Timeout Docker elevado de 30 para 90 segundos e readiness de 60 para 120,
   conforme revisão independente; falhas e limite global do CI continuam ativos.
-  A validação remota da versão final ainda é requerida.
+  A validação remota dessa implementação foi confirmada no fechamento abaixo.
 - Repetição final pelo orquestrador com `PGSSLMODE=require`: exit 0, 39/39
   testes, 8/8 arquivos, nenhuma falha/skip; oito migrations aplicadas e cleanup
   confirmado do contêiner `kesko-test-pg-36f1b298-a076-4031-bcab-7131351272d0`.
@@ -70,6 +70,28 @@ Halley revisou código, contratos, policies e ACLs sem editar implementação:
 sem bloqueadores encontrados nas correções, condicionado às verificações reais.
 Lovelace revisou executor/CI e encontrou o problema SSL, encaminhado e corrigido.
 Nenhum desses pareceres simula uma aprovação GitHub humana ou autoriza produção.
+
+### Fechamento independente e CI
+
+Implementação e preflight revisados no SHA
+`860051c8cf77cf010b69aeb666b28fd05a060f22`, árvore limpa e PR #2 Draft.
+[CI 37235890508](https://github.com/carlosemox/KESKO/actions/runs/37235890508)
+e [job 111534783706](https://github.com/carlosemox/KESKO/actions/runs/37235890508/job/111534783706)
+confirmaram oito migrations, 39/39 testes, zero falhas/skips, cleanup,
+lint/typecheck/build e auditoria de dependências aprovados. Foi testado o merge
+sintético `330fe20cada13387147790059dbf9534699200a5` desse head com main;
+nenhum merge foi realizado no repositório.
+
+Halley, sem editar a entrega, consultou independentemente o CI e seus logs,
+revisou código, RLS/ACL, runner, bootstrap, preflight e workflow: **SEM
+BLOQUEADORES ENCONTRADOS NO ESCOPO REVISADO; favorável ao desenvolvimento
+S-001**. O preflight local passou com `localPending: 0`. Consulta final ao
+Docker não encontrou contêineres com o label dos testes descartáveis.
+
+Estado da preparação no escopo S-001: **GREEN / READY_FOR_DEVELOPMENT**.
+Isso não homologa autenticação de produção, não aprova o módulo planejado de
+preparação e não autoriza merge/deploy. O commit deste fechamento documental
+não altera o código revisado; a execução mais recente deve ser conferida no PR.
 
 ## Ambiente e próximos gates
 
