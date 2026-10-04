@@ -53,6 +53,11 @@ somente ao Supabase local por `--local --skip-vault --yes`, sem seed/reset.
 - Timeout Docker elevado de 30 para 90 segundos e readiness de 60 para 120,
   conforme revisão independente; falhas e limite global do CI continuam ativos.
   A validação remota da versão final ainda é requerida.
+- Repetição final pelo orquestrador com `PGSSLMODE=require`: exit 0, 39/39
+  testes, 8/8 arquivos, nenhuma falha/skip; oito migrations aplicadas e cleanup
+  confirmado do contêiner `kesko-test-pg-36f1b298-a076-4031-bcab-7131351272d0`.
+- CLI Supabase confirmou versão 2.119.0 diretamente. O timeout de consultas
+  do preflight foi ampliado de 15 para 60 segundos; falhas continuam não verificadas.
 - O bootstrap SQL reproduz roles/privilégios e `auth.uid()`, mas não constitui
   autenticação Supabase, validação de JWT/JWKS ou infraestrutura de staging.
 - Workflow `.github/workflows/validation.yml` preparado para PRs contra main e

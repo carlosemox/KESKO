@@ -18,7 +18,7 @@ function result(item, state, detail, local = true) {
 function run(cmd, args) {
   return spawnSync(cmd, args, {
     encoding: "utf8",
-    timeout: 15000,
+    timeout: 60000,
     env: { ...process.env, SUPABASE_TELEMETRY_DISABLED: "1" },
     maxBuffer: 1024 * 1024,
   });
