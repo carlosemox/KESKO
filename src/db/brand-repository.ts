@@ -21,7 +21,10 @@ export async function createBrand(
 
   return withTenantSession(pool, context, async (client) => {
     if (correlationId) {
-      await client.query("select set_config('request.correlation_id', $1, true)", [correlationId]);
+      await client.query(
+        "select set_config('request.correlation_id', $1, true)",
+        [correlationId],
+      );
     }
     const result = await query<BrandRecord>(
       client,

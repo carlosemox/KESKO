@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildApp } from "../../../src/app.js";
 
 const tenantA = "00000000-0000-0000-0000-000000000010";
@@ -14,16 +14,34 @@ function authorizationFixture() {
       [`${tenantA}:${memberId}`, "member"],
     ]),
     tenants: new Map([
-      [tenantA, { id: tenantA, name: "Tenant A", slug: "tenant-a", created_by: ownerId }],
-      [tenantB, { id: tenantB, name: "Tenant B", slug: "tenant-b", created_by: outsiderId }],
+      [
+        tenantA,
+        {
+          id: tenantA,
+          name: "Tenant A",
+          slug: "tenant-a",
+          created_by: ownerId,
+        },
+      ],
+      [
+        tenantB,
+        {
+          id: tenantB,
+          name: "Tenant B",
+          slug: "tenant-b",
+          created_by: outsiderId,
+        },
+      ],
     ]),
-    brands: [{
-      id: "00000000-0000-0000-0000-000000000020",
-      tenant_id: tenantA,
-      name: "Existing Brand",
-      slug: "existing-brand",
-      created_by: ownerId,
-    }],
+    brands: [
+      {
+        id: "00000000-0000-0000-0000-000000000020",
+        tenant_id: tenantA,
+        name: "Existing Brand",
+        slug: "existing-brand",
+        created_by: ownerId,
+      },
+    ],
     createBrandCalls: 0,
   };
 
@@ -37,7 +55,9 @@ function authorizationFixture() {
         context: { userId?: string },
         requestedTenantId: string,
       ) => {
-        const role = state.memberships.get(`${requestedTenantId}:${context.userId}`);
+        const role = state.memberships.get(
+          `${requestedTenantId}:${context.userId}`,
+        );
         return role
           ? {
               tenant_id: requestedTenantId,
@@ -65,6 +85,37 @@ describe("S-001 HTTP authorization", () => {
   afterEach(async () => {
     await Promise.all(apps.splice(0).map((app) => app.close()));
   });
+
+  it.each([
+    { method: "GET", suffix: "" },
+    { method: "GET", suffix: "/brands" },
+    { method: "POST", suffix: "/brands" },
+  ] as const)(
+    "rejects malformed tenantId for $method tenant$suffix before persistence",
+    async ({ method, suffix }) => {
+      const fixture = authorizationFixture();
+      const calls = Object.keys(fixture.repositories).map((key) =>
+        vi.spyOn(
+          fixture.repositories,
+          key as keyof typeof fixture.repositories,
+        ),
+      );
+      const app = buildApp({ repositories: fixture.repositories });
+      apps.push(app);
+
+      const response = await app.inject({
+        method,
+        url: `/v1/tenants/not-a-uuid${suffix}`,
+        headers: { authorization: `Bearer local:${ownerId}` },
+        ...(method === "POST"
+          ? { payload: { name: "Valid Brand", slug: "valid-brand" } }
+          : {}),
+      });
+
+      expect.soft(response.statusCode).toBe(400);
+      for (const call of calls) expect.soft(call).not.toHaveBeenCalled();
+    },
+  );
 
   it("does not disclose another user's tenant", async () => {
     const fixture = authorizationFixture();

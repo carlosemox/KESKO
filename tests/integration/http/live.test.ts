@@ -3,7 +3,9 @@ import { Client } from "pg";
 import { buildApp } from "../../../src/app.js";
 
 const dbTests = process.env.RUN_DB_TESTS === "1" ? describe : describe.skip;
-const databaseUrl = process.env.DATABASE_URL ?? "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
+const databaseUrl =
+  process.env.DATABASE_URL ??
+  "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
 const ownerId = "00000000-0000-0000-0000-000000000001";
 
 dbTests("S-001 live HTTP vertical", () => {
@@ -38,13 +40,20 @@ dbTests("S-001 live HTTP vertical", () => {
       expect(brand.statusCode).toBe(201);
       expect(brand.json().data).toMatchObject({ tenantId, slug: "live-brand" });
     } finally {
-      await app.close();
-      const cleanup = new Client({ connectionString: databaseUrl });
-      await cleanup.connect();
       try {
-        if (tenantId) await cleanup.query("delete from public.tenants where id = $1", [tenantId]);
+        await app.close();
       } finally {
-        await cleanup.end();
+        if (tenantId) {
+          const cleanup = new Client({ connectionString: databaseUrl });
+          try {
+            await cleanup.connect();
+            await cleanup.query("delete from public.tenants where id = $1", [
+              tenantId,
+            ]);
+          } finally {
+            await cleanup.end();
+          }
+        }
       }
     }
   });

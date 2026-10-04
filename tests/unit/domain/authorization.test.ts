@@ -13,9 +13,12 @@ describe("tenant authorization", () => {
     expect(can(context(role), "brand:create")).toBe(true);
   });
 
-  it.each(["member", "viewer"] as const)("denies %s from creating brands", (role) => {
-    expect(can(context(role), "brand:create")).toBe(false);
-  });
+  it.each(["member", "viewer"] as const)(
+    "denies %s from creating brands",
+    (role) => {
+      expect(can(context(role), "brand:create")).toBe(false);
+    },
+  );
 
   it("denies unauthenticated users by default", () => {
     expect(can({ authenticated: false }, "brand:read")).toBe(false);

@@ -28,7 +28,12 @@ export function can(
   context: TenantContext,
   permission: TenantPermission,
 ): boolean {
-  if (context.authenticated !== true || !context.tenantId || !context.userId || !context.role) {
+  if (
+    context.authenticated !== true ||
+    !context.tenantId ||
+    !context.userId ||
+    !context.role
+  ) {
     return false;
   }
 
@@ -43,6 +48,9 @@ export function assertPermission(
   }
 
   if (!can(context, permission)) {
-    throw new DomainError("FORBIDDEN", "The current role cannot perform this action");
+    throw new DomainError(
+      "FORBIDDEN",
+      "The current role cannot perform this action",
+    );
   }
 }

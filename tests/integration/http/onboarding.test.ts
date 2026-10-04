@@ -55,7 +55,9 @@ function repositoryFixture() {
         context: { userId?: string },
         requestedTenantId: string,
       ) => {
-        const role = state.memberships.get(`${requestedTenantId}:${context.userId}`);
+        const role = state.memberships.get(
+          `${requestedTenantId}:${context.userId}`,
+        );
         return role
           ? {
               tenant_id: requestedTenantId,

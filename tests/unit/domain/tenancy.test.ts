@@ -7,7 +7,11 @@ import {
 describe("tenancy domain", () => {
   it("rejects a context without a tenant", () => {
     expect(() =>
-      validateTenantContext({ authenticated: true, userId: "user-1", role: "owner" }),
+      validateTenantContext({
+        authenticated: true,
+        userId: "user-1",
+        role: "owner",
+      }),
     ).toThrowError("tenant context");
   });
 
@@ -20,7 +24,12 @@ describe("tenancy domain", () => {
   it("maps another tenant to a not-found error", () => {
     try {
       assertTenantAccess(
-        { authenticated: true, userId: "user-1", tenantId: "tenant-1", role: "owner" },
+        {
+          authenticated: true,
+          userId: "user-1",
+          tenantId: "tenant-1",
+          role: "owner",
+        },
         "tenant-2",
       );
       throw new Error("expected tenant access to fail");
@@ -30,15 +39,17 @@ describe("tenancy domain", () => {
   });
 
   it("normalizes valid brand input", () => {
-    expect(validateBrandInput({ name: "  Acme  ", slug: "Acme-Team" })).toEqual({
-      name: "Acme",
-      slug: "acme-team",
-    });
+    expect(validateBrandInput({ name: "  Acme  ", slug: "Acme-Team" })).toEqual(
+      {
+        name: "Acme",
+        slug: "acme-team",
+      },
+    );
   });
 
   it("rejects invalid brand slugs", () => {
-    expect(() => validateBrandInput({ name: "Acme", slug: "not valid" })).toThrowError(
-      "lowercase kebab-case",
-    );
+    expect(() =>
+      validateBrandInput({ name: "Acme", slug: "not valid" }),
+    ).toThrowError("lowercase kebab-case");
   });
 });

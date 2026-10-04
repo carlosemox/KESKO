@@ -36,7 +36,10 @@ export function assertTenantAccess(
     throw new DomainError("UNAUTHENTICATED", "Authentication is required");
   }
 
-  if (!requiredText(resourceTenantId) || context.tenantId !== resourceTenantId) {
+  if (
+    !requiredText(resourceTenantId) ||
+    context.tenantId !== resourceTenantId
+  ) {
     throw new DomainError("TENANT_NOT_FOUND", "Tenant resource was not found");
   }
 }
@@ -46,26 +49,41 @@ export function validateBrandInput(input: BrandInput): BrandInput {
   const slug = input.slug.trim().toLowerCase();
 
   if (name.length < 1 || name.length > 120) {
-    throw new DomainError("INVALID_INPUT", "Brand name must contain 1 to 120 characters");
+    throw new DomainError(
+      "INVALID_INPUT",
+      "Brand name must contain 1 to 120 characters",
+    );
   }
 
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 63) {
-    throw new DomainError("INVALID_INPUT", "Brand slug must be lowercase kebab-case");
+    throw new DomainError(
+      "INVALID_INPUT",
+      "Brand slug must be lowercase kebab-case",
+    );
   }
 
   return { name, slug };
 }
 
-export function validateTenantInput(input: { name: string; slug: string }): { name: string; slug: string } {
+export function validateTenantInput(input: { name: string; slug: string }): {
+  name: string;
+  slug: string;
+} {
   const name = input.name.trim();
   const slug = input.slug.trim().toLowerCase();
 
   if (name.length < 1 || name.length > 120) {
-    throw new DomainError("INVALID_INPUT", "Tenant name must contain 1 to 120 characters");
+    throw new DomainError(
+      "INVALID_INPUT",
+      "Tenant name must contain 1 to 120 characters",
+    );
   }
 
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
-    throw new DomainError("INVALID_INPUT", "Tenant slug must be lowercase kebab-case");
+    throw new DomainError(
+      "INVALID_INPUT",
+      "Tenant slug must be lowercase kebab-case",
+    );
   }
 
   return { name, slug };

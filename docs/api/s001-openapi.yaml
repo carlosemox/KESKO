@@ -26,6 +26,7 @@ paths:
       parameters: [{ $ref: '#/components/parameters/tenantId' }]
       responses:
         '200': { description: Tenant returned }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
   /v1/tenants/{tenantId}/brands:
@@ -34,6 +35,7 @@ paths:
       summary: List brands in an authorized tenant
       responses:
         '200': { description: Brands returned }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     post:
