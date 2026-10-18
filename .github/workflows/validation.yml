@@ -25,13 +25,17 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
-      - run: npm install --global pnpm@11.19.0
+      - run: npm install --global corepack@0.36.0 && corepack enable
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
+      - run: pnpm quality:rules
+      - run: pnpm quality:measure
       - run: pnpm build
       - run: docker pull postgres:17-alpine
       - run: pnpm test:postgres
         env:
           PGSSLMODE: require
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:browser
       - run: pnpm audit --prod --audit-level=high

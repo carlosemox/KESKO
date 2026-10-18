@@ -15,8 +15,9 @@ import {
   type CycleExecutor,
 } from "../../../scripts/harness/supervisor.mjs";
 
-vi.mock(import("node:child_process"), async (importOriginal) => {
-  const original = await importOriginal();
+vi.mock("node:child_process", async () => {
+  const original =
+    await vi.importActual<typeof childProcess>("node:child_process");
   return { ...original, spawn: vi.fn(original.spawn) };
 });
 

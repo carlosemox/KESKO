@@ -16,6 +16,11 @@ import { setTimeout as delay } from "node:timers/promises";
 import pg from "pg";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
+const serve = process.argv.length === 3 && process.argv[2] === "--serve";
+const browser = process.argv.length === 3 && process.argv[2] === "--browser";
+if (process.argv.length > 2 && !serve && !browser) {
+  throw new Error("Usage: node scripts/test-postgres.mjs [--serve|--browser]");
+}
 const token = randomUUID();
 const name = `kesko-test-pg-${token}`;
 const label = "kesko.test-postgres.owner";
@@ -267,25 +272,84 @@ try {
     await apply(`../supabase/migrations/${migration}`);
     console.log(`Applied ${migration}`);
   }
-  phase = "pnpm test";
-  console.log(
-    "Running RUN_DB_TESTS=1 pnpm test against the disposable database.",
-  );
-  const result = await run("pnpm", ["test"], {
-    timeout: 300_000,
-    childEnv: {
-      ...env,
-      CI: "true",
-      RUN_DB_TESTS: "1",
-      DATABASE_URL: databaseUrl,
-      // pnpm 11 defaults to installing on a dependency-state mismatch.
-      // A test runner must fail instead of rewriting the shared node_modules.
-      pnpm_config_verify_deps_before_run: "error",
-    },
-  });
-  process.stdout.write(result.output);
-  if (result.code !== 0)
-    throw new Error(`pnpm test failed (exit ${result.code ?? result.signal})`);
+  if (serve || browser) {
+    phase = "synthetic demonstration fixture";
+    await docker(
+      [
+        "exec",
+        "-i",
+        name,
+        "psql",
+        "-X",
+        "-q",
+        "-U",
+        "postgres",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "--single-transaction",
+      ],
+      {
+        input:
+          "insert into public.tenants(id, name, slug, created_by) values ('00000000-0000-0000-0000-000000000010', 'DEMONSTRAÇÃO — empresa sintética', 'demonstracao-sintetica', '00000000-0000-0000-0000-000000000001'); insert into public.tenant_memberships(tenant_id, user_id, role, status) values ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'owner', 'active');",
+      },
+    );
+    phase = "local demonstration server";
+    console.log(
+      "DEMONSTRAÇÃO DESCARTÁVEL: somente dados sintéticos. Dados serão removidos ao encerrar.",
+    );
+    console.log("Após iniciar: http://127.0.0.1:3000/workflow");
+    console.log(
+      "Usuário: 00000000-0000-0000-0000-000000000001; tenant: 00000000-0000-0000-0000-000000000010",
+    );
+    console.log(
+      "Ctrl+C encerra a demonstração e remove apenas seu container; limite de sessão: 30 minutos.",
+    );
+    const result = await run(
+      "corepack",
+      browser
+        ? ["pnpm", "exec", "playwright", "test"]
+        : ["pnpm", "start:local"],
+      {
+        timeout: (browser ? 10 : 30) * 60_000,
+        childEnv: {
+          ...env,
+          NODE_ENV: "development",
+          PORT: "3000",
+          DATABASE_URL: databaseUrl,
+          pnpm_config_verify_deps_before_run: "error",
+        },
+      },
+    );
+    process.stdout.write(result.output);
+    if (result.code !== 0)
+      throw new Error(
+        `Local server failed (exit ${result.code ?? result.signal})`,
+      );
+  } else {
+    phase = "pnpm test";
+    console.log(
+      "Running RUN_DB_TESTS=1 pnpm test against the disposable database.",
+    );
+    const result = await run("corepack", ["pnpm", "test"], {
+      timeout: 300_000,
+      childEnv: {
+        ...env,
+        CI: "true",
+        RUN_DB_TESTS: "1",
+        DATABASE_URL: databaseUrl,
+        // pnpm 11 defaults to installing on a dependency-state mismatch.
+        // A test runner must fail instead of rewriting the shared node_modules.
+        pnpm_config_verify_deps_before_run: "error",
+      },
+    });
+    process.stdout.write(result.output);
+    if (result.code !== 0)
+      throw new Error(
+        `pnpm test failed (exit ${result.code ?? result.signal})`,
+      );
+  }
   checkSignal();
 } catch (error) {
   console.error(
@@ -327,9 +391,9 @@ try {
         await docker(["rm", "--force", "--volumes", id], { cleanup: true });
       }
       console.log(`Cleanup complete: ${name}`);
-    } catch {
+    } catch (error) {
       console.error(
-        `Cleanup could not be verified; inspect only container ${name}.`,
+        `Cleanup could not be verified (${redact(error.message)}); inspect only container ${name}.`,
       );
       process.exitCode = interrupted || 1;
     }
