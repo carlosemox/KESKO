@@ -6,13 +6,17 @@
 - CI: https://github.com/carlosemox/KESKO/actions/runs/39158695419 — SUCCESS;
   PostgreSQL and Chromium gates passed on the implementation SHA above. All jobs
   and steps inspected; companion run 39158692102 also passed.
-- State: P1_READY_FOR_REVIEW / AUTH_PROVIDER_PENDING, 2026-10-18.
+- State: P2_REVIEWED / CI_PENDING, 2026-10-18.
 - Delivery: Chromium/Playwright 1.64.1 with disposable PostgreSQL; interview resume,
   concurrent conflict, offline recovery, local preservation, synchronized reset,
   briefing/discovery/PRD/human approval and desktop/mobile overflow checks passed.
 - P1 delivery: configured JWT/JWKS verifier without local fallback; membership
   still controls access. Human journey partial draft, resume, source PRD binding,
-  explicit approval and immutable approved artifact; design remains blocked.
+  explicit approval and immutable approved artifact.
+- P2 delivery: human UI/UX specification now persists partial drafts, resumes
+  them, binds them to the approved Journey, records exact content hashes and
+  requires explicit owner/admin approval. Domain/schema remains the next blocked
+  executor; no screens or AI-generated design are claimed.
 - P1 gates: 194 PostgreSQL tests passed, zero skips; eleven migrations applied;
   Chromium end-to-end passed in 13.4s including journey, console/HTTP checks,
   mobile/desktop overflow, labels/focus/live region. Owned containers removed.
@@ -37,11 +41,19 @@
   not constitute a full accessibility audit; fixture JWKS is not a live provider.
 - Toolchain: TypeScript 6.0.3 + typescript-eslint 8.71.2 official compatible
   versions; typed async lint and typecheck PASS. Broad gates rerun before publish.
+- P2 gates: PostgreSQL 17 migration/test run passed with 197 tests, zero
+  failed/skipped; Chromium real-browser flow passed in 5.0m including UI/UX
+  draft and human approval. Lint, typecheck, build, quality rules, dependency
+  audit and secret scan passed. Two pre-existing size warnings remain.
+- P2 independent review: Sentinel reviewer Laplace re-reviewed after the
+  evidence additions; prior conditions closed, no P0/P1/P2 findings, technical
+  decision APPROVED. This is not cryptographic attestation.
 - Blocks: real Supabase Auth/JWKS resources not verified. Harness inactive;
   real trusted reviewer/key, authorization.json and scoped sentinel.json absent.
-- Next: real user acceptance of Journey in the platform and provider/session
-  integration. Owner must identify the authorized Supabase organization/project;
-  do not send credentials in chat. Ordinary development remains permitted;
-  persistent Harness requires independently provisioned trust and signed scope.
+- Next: publish P2 and verify exact-SHA remote CI, then real user acceptance of
+  the Journey/UI/UX in the platform. Provider/session integration remains pending;
+  owner must identify the authorized Supabase organization/project. Do not send
+  credentials in chat. Persistent Harness requires independently provisioned
+  trust and signed scope.
   Connected Supabase inventory contains no
   identifiable KESKO project; unrelated projects were not accessed or changed.

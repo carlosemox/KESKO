@@ -203,6 +203,39 @@ test("real PostgreSQL interview: recovery, conflict, offline, reset and human ap
     await expect(resumed.locator("#steps")).toContainText(
       "Jornada e estados — Concluída",
     );
+    await expect(resumed.locator("#design-section")).toBeVisible();
+    await expect(resumed.locator("#next")).toContainText("UI/UX");
+    const design = {
+      informationArchitecture: "Menu simples por tarefa e perfil",
+      screenMap: "Entrada, lista, detalhe, confirmação e recuperação",
+      visualHierarchy: "Ação principal primeiro, contexto em seguida",
+      reusableComponents: "Cabeçalho, formulário, aviso, lista e estado vazio",
+      designTokens: "Escala nomeada de cor, tipografia e espaçamento",
+      colorsContrast: "Contraste AA e cores de estado com texto explícito",
+      typography: "Sistema sem serifa com pesos para título, rótulo e corpo",
+      spacing: "Escala de 4px com agrupamento por seção",
+      states: "Carregando, vazio, erro recuperável e sucesso confirmado",
+      responsiveness: "Uma coluna no celular e duas áreas no desktop",
+      accessibility: "Foco visível, teclado, labels e leitura sem cor isolada",
+      microinteractions: "Feedback de salvamento e foco no próximo passo",
+      errorMessages: "Mensagem junto ao problema com instrução de recuperação",
+      visualAcceptance: "Revisar cada tela em desktop e celular contra o mapa",
+      consistencyRules: "Reutilizar componentes e não duplicar padrões",
+    };
+    for (const [field, value] of Object.entries(design))
+      await resumed.locator(`#design-${field}`).fill(value);
+    await resumed.locator("#design-submit").click();
+    await expect(resumed.locator("#status")).toHaveText("Operação registrada.");
+    await resumed
+      .locator("#design-reason")
+      .fill("Arquitetura, estados e critérios visuais revisados");
+    await resumed.locator("#design-approve").click();
+    await expect(
+      resumed.locator("#design-informationArchitecture"),
+    ).toBeDisabled();
+    await expect(resumed.locator("#steps")).toContainText(
+      "UI/UX e design system — Concluída",
+    );
     await expect(resumed.locator("#next")).toContainText("Sem executor");
     for (const width of [1280, 390]) {
       await resumed.setViewportSize({ width, height: 844 });

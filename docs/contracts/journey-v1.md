@@ -29,7 +29,9 @@ reason (max 2000 characters). It checks the current source and latest draft,
 then records explicit human approval. Critical unknowns identified with
 DADO INSUFICIENTE or empty fields prevent approval. All listed fields are
 required for approval, not for draft saving. Approved journeys cannot be resubmitted or
-reapproved; create a change request. Design remains blocked without an executor.
+reapproved; create a change request. Approval unlocks the human UI/UX
+specification described in `docs/contracts/design-v1.md`; the domain stage
+remains blocked without an executor.
 `run_step journey` still reports unavailable execution and creates no artifact.
 
 Both commands retain existing owner/admin authorization, tenant isolation,
@@ -65,8 +67,9 @@ the actual registerIdentityHook before workflow routes.
 Added real-DB coverage (not executed here) for partial save/reopen, duplicate
 replay, conflicting operation payload, stale CAS, concurrent submissions,
 viewer/member/outsider denial, stale source ID/hash, obsolete draft approval,
-admin approval, approval replay and approved immutability. Existing no-executor
-assertions remain for run_step journey and downstream design.
+admin approval, approval replay and approved immutability. `run_step journey`
+still has no executor; the design stage has its own human draft/approval
+contract.
 
 Limits: field length uses JavaScript string length, max 2000; journey command
 serialized UTF-8 size max 65536 bytes; approval reason max 2000. HTTP parsing

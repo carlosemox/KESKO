@@ -12,9 +12,10 @@ const html = `<!doctype html>
 <section id="interview" aria-labelledby="interview-title"><h2 id="interview-title">Vamos começar pela sua ideia</h2><p>Você não precisa saber desenvolver sistemas. Responda uma pergunta por vez; o rascunho fica salvo neste navegador para você continuar depois.</p><p id="interview-progress" role="status"></p><form id="interview-form"><label id="interview-label" for="interview-answer"></label><p id="interview-hint"></p><textarea id="interview-answer" required maxlength="4000"></textarea><button id="interview-back" type="button">Voltar</button><button id="interview-next">Continuar</button></form><button id="interview-clear" type="button">Limpar rascunho da entrevista</button></section>
 <section aria-label="Próxima ação"><h2>Próxima ação</h2><p id="next">Salve o briefing para iniciar.</p><button id="run" hidden>Executar etapa local</button><form id="approval" hidden><label for="reason">Justificativa da aprovação humana do PRD (owner/admin)</label><textarea id="reason" required maxlength="2000"></textarea><button id="approve">Aprovar PRD</button></form></section>
 <section id="journey-section" hidden aria-labelledby="journey-title"><h2 id="journey-title">Jornada escrita por você</h2><p>Descreva o caminho de cada perfil com base no PRD aprovado. Salve mesmo incompleto e retome depois. Quando não souber, registre DADO INSUFICIENTE; resolva as lacunas antes de aprovar.</p><p id="journey-source"></p><form id="journey-form"><fieldset id="journey-editor"><legend>Rascunho humano · Prompt 03</legend><div id="journey-fields"></div><button id="journey-submit">Salvar rascunho da jornada</button></fieldset></form><form id="journey-approval" hidden><label for="journey-reason">Justificativa da aprovação humana da jornada (owner/admin)</label><p>Confirme que revisou todos os perfis, caminhos e exceções e que nenhum fluxo crítico está indefinido.</p><textarea id="journey-reason" required maxlength="2000"></textarea><button id="journey-approve">Aprovar jornada</button></form></section>
+<section id="design-section" hidden aria-labelledby="design-title"><h2 id="design-title">UI/UX e design system</h2><p>Descreva a interface a partir da jornada aprovada. Esta etapa registra decisões humanas sobre telas, componentes, acessibilidade e critérios visuais; não inventa identidade de marca nem afirma que uma tela foi implementada.</p><p id="design-source"></p><form id="design-form"><fieldset id="design-editor"><legend>Especificação humana · Prompt 04</legend><div id="design-fields"></div><button id="design-submit">Salvar rascunho de UI/UX</button></fieldset></form><form id="design-approval" hidden><label for="design-reason">Justificativa da aprovação humana da UI/UX (owner/admin)</label><p>Confirme que a arquitetura de informação, estados, acessibilidade e critérios visuais foram revisados.</p><textarea id="design-reason" required maxlength="2000"></textarea><button id="design-approve">Aprovar UI/UX</button></form></section>
 <h2>17 etapas</h2><ol id="steps"></ol><h2>Evidências e PRD</h2><div id="artifacts"></div><h2>Histórico</h2><ol id="history"></ol></section></div></main></body></html>`;
 
-const css = `:root{font:16px/1.6 system-ui,sans-serif;color:#172b36;background:#f5f6f3}*{box-sizing:border-box}body{margin:0}main{max-width:1200px;margin:auto;padding:clamp(16px,4vw,48px)}h1{font-size:clamp(2rem,5vw,3.5rem);line-height:1.1}h2{margin-top:2rem}.notice{border-left:4px solid #916200;padding:16px;background:#fff5d9}.layout{display:grid;grid-template-columns:minmax(180px,1fr) minmax(0,3fr);gap:32px}fieldset{border:1px solid #bbc6c9;padding:20px;border-radius:8px}label{display:block;margin-top:12px;font-weight:600}input,textarea,select{width:100%;font:inherit;padding:10px;border:1px solid #617580;border-radius:4px;background:white;color:inherit}textarea{min-height:90px;resize:vertical}button{font:inherit;padding:10px 16px;margin:12px 4px 4px 0;border:1px solid #215c60;background:#215c60;color:white;border-radius:4px;cursor:pointer}button:disabled{opacity:.55;cursor:not-allowed}:focus-visible{outline:3px solid #ac4b09;outline-offset:3px}li{margin:12px 0;overflow-wrap:anywhere}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}details{padding:12px;border:1px solid #bbc6c9;margin:12px 0}summary{cursor:pointer;font-weight:600}[hidden]{display:none!important}#status{min-height:2em}#journey-source{overflow-wrap:anywhere}#steps li{padding:12px;background:white;border-left:3px solid #215c60}#projects{padding-left:20px}@media(max-width:700px){.layout{grid-template-columns:1fr}main{padding:16px}}`;
+const css = `:root{font:16px/1.6 system-ui,sans-serif;color:#172b36;background:#f5f6f3}*{box-sizing:border-box}body{margin:0}main{max-width:1200px;margin:auto;padding:clamp(16px,4vw,48px)}h1{font-size:clamp(2rem,5vw,3.5rem);line-height:1.1}h2{margin-top:2rem}.notice{border-left:4px solid #916200;padding:16px;background:#fff5d9}.layout{display:grid;grid-template-columns:minmax(180px,1fr) minmax(0,3fr);gap:32px}fieldset{border:1px solid #bbc6c9;padding:20px;border-radius:8px}label{display:block;margin-top:12px;font-weight:600}input,textarea,select{width:100%;font:inherit;padding:10px;border:1px solid #617580;border-radius:4px;background:white;color:inherit}textarea{min-height:90px;resize:vertical}button{font:inherit;padding:10px 16px;margin:12px 4px 4px 0;border:1px solid #215c60;background:#215c60;color:white;border-radius:4px;cursor:pointer}button:disabled{opacity:.55;cursor:not-allowed}:focus-visible{outline:3px solid #ac4b09;outline-offset:3px}li{margin:12px 0;overflow-wrap:anywhere}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}details{padding:12px;border:1px solid #bbc6c9;margin:12px 0}summary{cursor:pointer;font-weight:600}[hidden]{display:none!important}#status{min-height:2em}#journey-source,#design-source{overflow-wrap:anywhere}#steps li{padding:12px;background:white;border-left:3px solid #215c60}#projects{padding-left:20px}@media(max-width:700px){.layout{grid-template-columns:1fr}main{padding:16px}}`;
 
 const js = String.raw`"use strict";
 (() => {
@@ -29,6 +30,13 @@ const js = String.raw`"use strict";
     ['Medição e abandono', {analytics:'Quais eventos de analytics devem ser registrados e em que ponto?',abandonment:'Onde cada perfil pode abandonar a jornada?'}],
   ];
   const journeyKeys = journeyGroups.flatMap(([,fields]) => Object.keys(fields));
+  const designGroups = [
+    ['Estrutura e componentes', {informationArchitecture:'Arquitetura de informação: como o conteúdo será organizado?',screenMap:'Mapa de telas: quais telas existem e como se conectam?',visualHierarchy:'Hierarquia visual: o que deve chamar atenção primeiro?',reusableComponents:'Componentes reutilizáveis: quais padrões serão compartilhados?'}],
+    ['Linguagem visual', {designTokens:'Design tokens: quais decisões de cor, tipografia, espaço e forma serão nomeadas?',colorsContrast:'Cores e contraste: quais cores e contrastes aprovados serão usados?',typography:'Tipografia: quais fontes, tamanhos e pesos serão usados?',spacing:'Espaçamento: qual escala e regra de composição será usada?'}],
+    ['Estados e plataformas', {states:'Estados de carregamento, vazio, erro e sucesso de cada tela',responsiveness:'Responsividade: como a experiência se adapta a desktop, tablet e mobile?',accessibility:'Acessibilidade: quais padrões, foco, teclado e leitura serão garantidos?',microinteractions:'Microinterações: quais respostas visuais ajudam sem distrair?'}],
+    ['Aceite visual', {errorMessages:'Mensagens de erro: como orientar a pessoa a se recuperar?',visualAcceptance:'Critérios de aceite visual: como o responsável verificará a interface?',consistencyRules:'Regras para evitar telas duplicadas ou componentes inconsistentes'}],
+  ];
+  const designKeys = designGroups.flatMap(([,fields]) => Object.keys(fields));
   const uuid = /^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/i;
   let context = null, current = null, action = null, busy = false, pending = null, interviewIndex = 0, interviewAnswers = {}, interviewComplete = false;
   let interviewVersion = null, interviewRemoteReady = false, interviewQueue = Promise.resolve(), interviewGeneration = 0, interviewDirty = false, interviewNotice = '';
@@ -52,8 +60,19 @@ const js = String.raw`"use strict";
     }
     $('journey-fields').append(group);
   }
+  for (const [title,fields] of designGroups) {
+    const group = document.createElement('fieldset'); group.append(node('legend',title));
+    for (const [key,label] of Object.entries(fields)) {
+      const l = node('label',label); l.htmlFor = 'design-' + key;
+      const t = document.createElement('textarea'); t.id = 'design-' + key; t.maxLength = 4000;
+      group.append(l,t);
+    }
+    $('design-fields').append(group);
+  }
   function journeyArtifact() { return current && [...current.artifacts].reverse().find(a => a.stepId === 'journey' && a.revision === current.briefingRevision); }
   function journeySource() { return current && [...current.artifacts].reverse().find(a => a.stepId === 'prd' && a.revision === current.briefingRevision && a.verification === 'human_review'); }
+  function designArtifact() { return current && [...current.artifacts].reverse().find(a => a.stepId === 'design' && a.revision === current.briefingRevision); }
+  function designSource() { return current && [...current.artifacts].reverse().find(a => a.stepId === 'journey' && a.revision === current.briefingRevision && a.verification === 'human_review'); }
   $('tenant').value = '00000000-0000-0000-0000-000000000010';
   $('actor').value = '00000000-0000-0000-0000-000000000001';
   function approved() { return current && current.steps.some(s => s.id === 'prd' && s.state === 'completed'); }
@@ -66,9 +85,12 @@ const js = String.raw`"use strict";
     $('run').disabled = locked; $('approve').disabled = locked; $('reason').disabled = locked;
     $('journey-editor').disabled = locked || !approved() || !!(current && current.steps.some(s => s.id === 'journey' && s.state === 'completed'));
     $('journey-approve').disabled = locked; $('journey-reason').disabled = locked;
+    $('design-editor').disabled = locked || !journeyApproved() || !!(current && current.steps.some(s => s.id === 'design' && s.state === 'completed'));
+    $('design-approve').disabled = locked; $('design-reason').disabled = locked;
     $('retry').hidden = !pending; $('retry').disabled = busy;
     for (const b of $('projects').querySelectorAll('button')) b.disabled = locked;
   }
+  function journeyApproved() { return current && current.steps.some(s => s.id === 'journey' && s.state === 'completed'); }
   function render(data) {
     current = data.project; action = data.nextAction;
     interviewComplete = true;
@@ -86,6 +108,12 @@ const js = String.raw`"use strict";
     $('journey-source').textContent = source ? 'PRD fonte: ' + source.id + ' · SHA-256: ' + source.sha256 : 'PRD aprovado vigente indisponível';
     for (const key of journeyKeys) $('journey-' + key).value = draft && draft.journeyInput ? draft.journeyInput.journey[key] || '' : '';
     $('journey-reason').value = '';
+    $('design-section').hidden = !journeyApproved();
+    $('design-approval').hidden = !(action && action.type === 'approve_design');
+    const designSourceArtifact = designSource(), designDraft = designArtifact();
+    $('design-source').textContent = designSourceArtifact ? 'Jornada fonte: ' + designSourceArtifact.id + ' · SHA-256: ' + designSourceArtifact.sha256 : 'Jornada aprovada vigente indisponível';
+    for (const key of designKeys) $('design-' + key).value = designDraft && designDraft.designInput ? designDraft.designInput.design[key] || '' : '';
+    $('design-reason').value = '';
     $('steps').replaceChildren();
     for (const step of current.steps) {
       const li = node('li',step.title + ' — ' + (states[step.state] || step.state) + ' · tentativas: ' + step.attempts);
@@ -97,7 +125,7 @@ const js = String.raw`"use strict";
     if (!current.artifacts.length) $('artifacts').append(node('p','Nenhuma evidência registrada.'));
     for (const artifact of current.artifacts) {
       const d = document.createElement('details');
-      const latest = artifact.revision === current.briefingRevision && (artifact.stepId !== 'journey' || artifact.id === (draft && draft.id));
+      const latest = artifact.revision === current.briefingRevision && (artifact.stepId === 'journey' ? artifact.id === (draft && draft.id) : artifact.stepId === 'design' ? artifact.id === (designDraft && designDraft.id) : true);
       d.append(node('summary',artifact.stepId + ' · revisão ' + artifact.revision + ' · ' + artifact.verification + (latest ? ' · vigente' : ' · histórica')),
         node('pre',artifact.content),node('p','SHA-256: ' + artifact.sha256),node('p','Criado por ' + artifact.createdBy + ' em ' + artifact.createdAt));
       if (artifact.approvedBy) d.append(node('p','Aprovado por ' + artifact.approvedBy + ': ' + artifact.approvalReason));
@@ -226,6 +254,18 @@ const js = String.raw`"use strict";
     if (!source || !draft || !reason || !action || action.type !== 'approve_journey') return;
     if (journeyKeys.some(key => $('journey-' + key).value.trim() !== draft.journeyInput.journey[key])) { message('Salve as alterações da jornada antes de aprovar.'); return; }
     mutate({type:'approve_journey',artifactId:draft.id,sourcePrdId:source.id,sourcePrdHash:source.sha256,reason});
+  });
+  $('design-form').addEventListener('submit',event => {
+    event.preventDefault(); const source = designSource();
+    if (!source || !action || !['submit_design','approve_design'].includes(action.type)) return;
+    const design = Object.fromEntries(designKeys.map(key => [key,$('design-' + key).value.trim()]));
+    mutate({type:'submit_design',design,sourceJourneyId:source.id,sourceJourneyHash:source.sha256});
+  });
+  $('design-approval').addEventListener('submit',event => {
+    event.preventDefault(); const source = designSource(), draft = designArtifact(), reason = $('design-reason').value.trim();
+    if (!source || !draft || !reason || !action || action.type !== 'approve_design') return;
+    if (designKeys.some(key => $('design-' + key).value.trim() !== draft.designInput.design[key])) { message('Salve as alterações da UI/UX antes de aprovar.'); return; }
+    mutate({type:'approve_design',artifactId:draft.id,sourceJourneyId:source.id,sourceJourneyHash:source.sha256,reason});
   });
   $('retry').addEventListener('click',() => { if (pending) send(pending); });
   window.addEventListener('beforeunload',event => { if (pending) { event.preventDefault(); event.returnValue = ''; } });

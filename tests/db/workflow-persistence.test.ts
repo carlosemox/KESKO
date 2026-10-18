@@ -6,7 +6,12 @@ import { createTenantWithOwner } from "../../src/db/tenant-repository.js";
 import { registerWorkflowRoutes } from "../../src/workflow/routes.js";
 import type { WorkflowDetail } from "../../src/workflow/repository.js";
 import { registerIdentityHook } from "../../src/http/auth-context.js";
-import { journeyFields, validateJourney } from "../../src/workflow/model.js";
+import {
+  designFields,
+  journeyFields,
+  validateDesign,
+  validateJourney,
+} from "../../src/workflow/model.js";
 
 const dbTests = process.env.RUN_DB_TESTS === "1" ? describe : describe.skip;
 const owner = "00000000-0000-0000-0000-000000000001";
@@ -664,7 +669,7 @@ dbTests("workflow PostgreSQL and HTTP", () => {
       journeyInput: { ...source, authorship: "human", journey: complete },
     });
     expect(approved.json().data.nextAction).toMatchObject({
-      type: "blocked",
+      type: "submit_design",
       stepId: "design",
     });
     expect((await request("POST", url, latest, member)).json().data).toEqual(
@@ -682,6 +687,103 @@ dbTests("workflow PostgreSQL and HTTP", () => {
     expect(
       (await request("GET", `${base}/${state.project.id}`)).json().data,
     ).toEqual(state);
+    const designSource = {
+      sourceJourneyId: state.project.artifacts.at(-1)!.id,
+      sourceJourneyHash: state.project.artifacts.at(-1)!.sha256,
+    };
+    const design = validateDesign(
+      Object.fromEntries(designFields.map((k) => [k, `Design ${k}`])),
+    );
+    expect(
+      (
+        await request("POST", url, {
+          type: "submit_design",
+          ...designSource,
+          design: Object.fromEntries(
+            designFields.map((k) => [k, "é".repeat(4000)]),
+          ),
+          operationId: randomUUID(),
+          expectedVersion: state.project.version,
+        })
+      ).statusCode,
+    ).toBe(400);
+    expect(
+      (
+        await request("POST", url, {
+          type: "submit_design",
+          sourceJourneyId: designSource.sourceJourneyId,
+          sourceJourneyHash: "a".repeat(64),
+          design,
+          operationId: randomUUID(),
+          expectedVersion: state.project.version,
+        })
+      ).statusCode,
+    ).toBe(409);
+    const designOperationId = randomUUID();
+    const designCommand = {
+      type: "submit_design",
+      ...designSource,
+      design,
+      operationId: designOperationId,
+      expectedVersion: state.project.version,
+    };
+    for (const actor of [viewer, outsider])
+      expect(
+        (
+          await request(
+            "POST",
+            url,
+            { ...designCommand, operationId: randomUUID() },
+            actor,
+          )
+        ).statusCode,
+      ).toBe(actor === outsider ? 404 : 403);
+    const designSubmit = await request("POST", url, designCommand);
+    expect(designSubmit.statusCode).toBe(200);
+    expect((await request("POST", url, designCommand)).json().data).toEqual(
+      designSubmit.json().data,
+    );
+    state = designSubmit.json().data;
+    expect(state.project.steps[3].state).toBe("awaiting_approval");
+    expect(state.project.artifacts.at(-1)).toMatchObject({
+      verification: "draft",
+      designInput: { ...designSource, authorship: "human", design },
+    });
+    const designApprovalBody = {
+      type: "approve_design",
+      ...designSource,
+      artifactId: state.project.artifacts.at(-1)!.id,
+      reason: "UI/UX revisada",
+      operationId: randomUUID(),
+      expectedVersion: state.project.version,
+    };
+    expect(
+      (
+        await request(
+          "POST",
+          url,
+          { ...designApprovalBody, expectedVersion: state.project.version - 1 },
+          member,
+        )
+      ).statusCode,
+    ).toBe(409);
+    const designApproval = await request(
+      "POST",
+      url,
+      designApprovalBody,
+      member,
+    );
+    expect(designApproval.statusCode).toBe(200);
+    state = designApproval.json().data;
+    expect(state.project.steps[3].state).toBe("completed");
+    expect(state.project.artifacts.at(-1)).toMatchObject({
+      verification: "human_review",
+      approvedBy: member,
+    });
+    expect(designApproval.json().data.nextAction).toMatchObject({
+      type: "blocked",
+      stepId: "domain",
+    });
     expect(state.history).toHaveLength(state.project.version);
   });
   it("retains every briefing input and failed validation result without artifacts", async () => {

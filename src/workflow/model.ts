@@ -45,6 +45,29 @@ export interface JourneyInput extends JourneySource {
   journey: Journey;
   authorship: "human";
 }
+export const designFields = [
+  "informationArchitecture",
+  "screenMap",
+  "visualHierarchy",
+  "reusableComponents",
+  "designTokens",
+  "colorsContrast",
+  "typography",
+  "spacing",
+  "states",
+  "responsiveness",
+  "accessibility",
+  "microinteractions",
+  "errorMessages",
+  "visualAcceptance",
+  "consistencyRules",
+] as const;
+export type DesignSpec = Record<(typeof designFields)[number], string>;
+type DesignSource = { sourceJourneyId: string; sourceJourneyHash: string };
+export interface DesignInput extends DesignSource {
+  design: DesignSpec;
+  authorship: "human";
+}
 export interface InterviewDraft {
   index: number;
   answers: Partial<Briefing>;
@@ -140,6 +163,7 @@ export interface Artifact {
   approvedBy?: string;
   approvalReason?: string;
   journeyInput?: JourneyInput;
+  designInput?: DesignInput;
 }
 export interface ProjectInput {
   name: string;
@@ -169,6 +193,12 @@ export type Command =
       artifactId: string;
       reason: string;
     } & JourneySource)
+  | ({ type: "submit_design"; design: DesignSpec } & DesignSource)
+  | ({
+      type: "approve_design";
+      artifactId: string;
+      reason: string;
+    } & DesignSource)
   | { type: "approve_prd"; reason: string };
 export type CommandRequest = Command & {
   operationId: string;
@@ -276,6 +306,9 @@ export function validateCommand(value: unknown): CommandRequest {
     "journey",
     "sourcePrdId",
     "sourcePrdHash",
+    "sourceJourneyId",
+    "sourceJourneyHash",
+    "design",
     "artifactId",
   ]);
   if (
@@ -316,6 +349,39 @@ export function validateCommand(value: unknown): CommandRequest {
       reason: text(input.reason, 2000),
     };
   }
+  if (input.type === "submit_design" || input.type === "approve_design") {
+    if (Buffer.byteLength(JSON.stringify(value), "utf8") > 65536)
+      throw new WorkflowError("INVALID_INPUT", "Comando excede 64 KiB");
+    const source = validateDesignSource(input);
+    if (input.type === "submit_design") {
+      object(input, [
+        ...common,
+        "sourceJourneyId",
+        "sourceJourneyHash",
+        "design",
+      ]);
+      return {
+        ...base,
+        ...source,
+        type: "submit_design",
+        design: validateDesign(input.design),
+      };
+    }
+    object(input, [
+      ...common,
+      "sourceJourneyId",
+      "sourceJourneyHash",
+      "artifactId",
+      "reason",
+    ]);
+    return {
+      ...base,
+      ...source,
+      type: "approve_design",
+      artifactId: uuid(input.artifactId),
+      reason: text(input.reason, 2000),
+    };
+  }
   if (input.type === "run_step") {
     object(input, [...common, "stepId"]);
     if (!definitions.some(([id]) => id === input.stepId))
@@ -345,6 +411,12 @@ export function validateJourney(value: unknown): Journey {
     journeyFields.map((k) => [k, text(input[k] ?? "", 2000, false)]),
   ) as Journey;
 }
+export function validateDesign(value: unknown): DesignSpec {
+  const input = object(value, designFields);
+  return Object.fromEntries(
+    designFields.map((k) => [k, text(input[k] ?? "", 4000, false)]),
+  ) as DesignSpec;
+}
 function validateJourneySource(input: Record<string, unknown>): JourneySource {
   if (
     typeof input.sourcePrdHash !== "string" ||
@@ -354,6 +426,17 @@ function validateJourneySource(input: Record<string, unknown>): JourneySource {
   return {
     sourcePrdId: uuid(input.sourcePrdId),
     sourcePrdHash: input.sourcePrdHash,
+  };
+}
+function validateDesignSource(input: Record<string, unknown>): DesignSource {
+  if (
+    typeof input.sourceJourneyHash !== "string" ||
+    !/^[a-f0-9]{64}$/.test(input.sourceJourneyHash)
+  )
+    throw new WorkflowError("INVALID_INPUT", "Hash da jornada inválido");
+  return {
+    sourceJourneyId: uuid(input.sourceJourneyId),
+    sourceJourneyHash: input.sourceJourneyHash,
   };
 }
 export function newProject(
@@ -411,6 +494,16 @@ export function nextAction(project: Project): {
         step.state === "awaiting_approval"
           ? "Revise a jornada humana e aprove explicitamente; lacunas críticas impedem avanço"
           : "Descreva a jornada a partir do PRD aprovado; nenhuma resposta será inventada",
+    };
+  if (step.id === "design")
+    return {
+      type:
+        step.state === "awaiting_approval" ? "approve_design" : "submit_design",
+      stepId: "design",
+      reason:
+        step.state === "awaiting_approval"
+          ? "Revise a especificação humana de UI/UX e aprove explicitamente"
+          : "Descreva a UI/UX a partir da jornada aprovada; nenhuma decisão será inventada",
     };
   if (!["discovery", "prd"].includes(step.id))
     return {
@@ -544,6 +637,80 @@ export function applyCommand(
       step.state = "completed";
       step.reason = null;
     }
+  } else if (
+    command.type === "submit_design" ||
+    command.type === "approve_design"
+  ) {
+    const source = [...next.artifacts]
+      .reverse()
+      .find(
+        (a) =>
+          a.stepId === "journey" &&
+          a.revision === next.briefingRevision &&
+          a.verification === "human_review",
+      );
+    const step = next.steps.find((s) => s.id === "design");
+    if (!step || step.state === "completed")
+      throw new WorkflowError(
+        "CONFLICT",
+        "UI/UX aprovada é imutável; crie uma mudança",
+      );
+    if (
+      next.steps.find((s) => s.id === "journey")?.state !== "completed" ||
+      !source ||
+      !source.approvedBy ||
+      source.id !== command.sourceJourneyId ||
+      source.sha256 !== command.sourceJourneyHash
+    )
+      throw new WorkflowError(
+        "CONFLICT",
+        "Jornada fonte não é a revisão aprovada vigente",
+      );
+    if (command.type === "submit_design") {
+      const designInput: DesignInput = {
+        authorship: "human",
+        sourceJourneyId: source.id,
+        sourceJourneyHash: source.sha256,
+        design: validateDesign(command.design),
+      };
+      addArtifact("design", JSON.stringify(designInput, null, 2), "draft");
+      next.artifacts[next.artifacts.length - 1].designInput = designInput;
+      step.state = "awaiting_approval";
+      step.reason =
+        "UI/UX escrita por pessoa; aguardando revisão e aprovação humana";
+    } else {
+      const artifact = [...next.artifacts]
+        .reverse()
+        .find(
+          (a) => a.stepId === "design" && a.revision === next.briefingRevision,
+        );
+      if (
+        step.state !== "awaiting_approval" ||
+        !artifact ||
+        artifact.id !== command.artifactId ||
+        artifact.verification !== "draft" ||
+        artifact.designInput?.sourceJourneyId !== source.id ||
+        artifact.designInput.sourceJourneyHash !== source.sha256
+      )
+        throw new WorkflowError(
+          "CONFLICT",
+          "Não há rascunho vigente de UI/UX para esta aprovação",
+        );
+      if (
+        Object.values(validateDesign(artifact.designInput.design)).some(
+          (v) => !v || /DADO INSUFICIENTE/i.test(v),
+        )
+      )
+        throw new WorkflowError(
+          "CONFLICT",
+          "Resolva os dados insuficientes antes de aprovar a UI/UX",
+        );
+      artifact.verification = "human_review";
+      artifact.approvedBy = actor;
+      artifact.approvalReason = text(command.reason, 2000);
+      step.state = "completed";
+      step.reason = null;
+    }
   } else if (command.type === "approve_prd") {
     const artifact = [...next.artifacts]
       .reverse()
@@ -632,7 +799,10 @@ export function applyCommand(
     ["not_started", "blocked"].includes(ready.state) &&
     ready.attempts < 3
   ) {
-    const supported = ["discovery", "prd"].includes(ready.id);
+    const supported =
+      ["discovery", "prd"].includes(ready.id) ||
+      (ready.id === "journey" && command.type === "approve_prd") ||
+      (ready.id === "design" && command.type === "approve_journey");
     ready.state = supported ? "in_progress" : "blocked";
     ready.reason = supported
       ? null

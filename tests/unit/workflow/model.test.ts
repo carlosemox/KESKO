@@ -9,6 +9,8 @@ import {
   validateInterviewDraft,
   journeyFields,
   validateJourney,
+  designFields,
+  validateDesign,
 } from "../../../src/workflow/model.js";
 
 const actor = "00000000-0000-0000-0000-000000000001";
@@ -39,6 +41,25 @@ const run = (p: ReturnType<typeof create>, stepId: string) =>
   applyCommand(p, { type: "run_step", stepId }, actor, now);
 
 describe("development workflow gates", () => {
+  it("defines the human-authored UI/UX contract after an approved journey", () => {
+    expect(designFields).toEqual([
+      "informationArchitecture",
+      "screenMap",
+      "visualHierarchy",
+      "reusableComponents",
+      "designTokens",
+      "colorsContrast",
+      "typography",
+      "spacing",
+      "states",
+      "responsiveness",
+      "accessibility",
+      "microinteractions",
+      "errorMessages",
+      "visualAcceptance",
+      "consistencyRules",
+    ]);
+  });
   it("clears a dependency block when its prerequisite becomes complete", () => {
     const blocked = run(create(), "prd");
     const ready = run(blocked, "discovery");
@@ -52,7 +73,7 @@ describe("development workflow gates", () => {
       actor,
       now,
     );
-    expect(approved.steps[2]).toMatchObject({ state: "blocked" });
+    expect(approved.steps[2]).toMatchObject({ state: "in_progress" });
   });
   it("records a independently reproducible SHA256 of each artifact's UTF-8 content", () => {
     const artifact = run(create(), "discovery").artifacts[0];
@@ -263,10 +284,10 @@ describe("human journey", () => {
     expect(approved.schemaVersion).toBe(1);
     expect(approved.steps.map((s) => s.id)).toEqual(p.steps.map((s) => s.id));
     expect(nextAction(approved)).toMatchObject({
-      type: "blocked",
+      type: "submit_design",
       stepId: "design",
     });
-    expect(approved.steps[3].state).toBe("blocked");
+    expect(approved.steps[3].state).toBe("in_progress");
     expect(approved.artifacts.at(-1)).toMatchObject({
       verification: "human_review",
       approvedBy: actor,
@@ -374,5 +395,121 @@ describe("human journey", () => {
         reason: "",
       }),
     ).toThrow();
+  });
+});
+
+describe("human UI/UX design", () => {
+  const approvedPrdAndJourney = () => {
+    let p = applyCommand(
+      run(run(create(), "discovery"), "prd"),
+      { type: "approve_prd", reason: "Reviewed" },
+      actor,
+      now,
+    );
+    const sourcePrd = p.artifacts.at(-1)!;
+    p = applyCommand(
+      p,
+      {
+        type: "submit_journey",
+        sourcePrdId: sourcePrd.id,
+        sourcePrdHash: sourcePrd.sha256,
+        journey: validateJourney(
+          Object.fromEntries(journeyFields.map((k) => [k, `Journey ${k}`])),
+        ),
+      },
+      actor,
+      now,
+    );
+    return applyCommand(
+      p,
+      {
+        type: "approve_journey",
+        sourcePrdId: sourcePrd.id,
+        sourcePrdHash: sourcePrd.sha256,
+        artifactId: p.artifacts.at(-1)!.id,
+        reason: "Journey reviewed",
+      },
+      actor,
+      now,
+    );
+  };
+  const complete = () =>
+    validateDesign(
+      Object.fromEntries(designFields.map((k) => [k, `Design ${k}`])),
+    );
+  const source = (p: ReturnType<typeof approvedPrdAndJourney>) => {
+    const journey = p.artifacts.at(-1)!;
+    return { sourceJourneyId: journey.id, sourceJourneyHash: journey.sha256 };
+  };
+  it("saves a human design draft and requires explicit approval", () => {
+    const p = approvedPrdAndJourney();
+    const draft = applyCommand(
+      p,
+      { type: "submit_design", ...source(p), design: complete() },
+      actor,
+      now,
+    );
+    expect(nextAction(draft)).toMatchObject({
+      type: "approve_design",
+      stepId: "design",
+    });
+    expect(draft.artifacts.at(-1)?.designInput).toMatchObject({
+      authorship: "human",
+      ...source(p),
+    });
+    expect(() =>
+      applyCommand(
+        draft,
+        {
+          type: "approve_design",
+          ...source(p),
+          artifactId: draft.artifacts.at(-1)!.id,
+          reason: "Review",
+        },
+        actor,
+        now,
+      ),
+    ).not.toThrow();
+  });
+  it("rejects incomplete, stale or insufficient design approvals", () => {
+    const p = approvedPrdAndJourney();
+    const partial = applyCommand(
+      p,
+      {
+        type: "submit_design",
+        ...source(p),
+        design: validateDesign({
+          informationArchitecture: "DADO INSUFICIENTE",
+        }),
+      },
+      actor,
+      now,
+    );
+    expect(() =>
+      applyCommand(
+        partial,
+        {
+          type: "approve_design",
+          ...source(p),
+          artifactId: partial.artifacts.at(-1)!.id,
+          reason: "Review",
+        },
+        actor,
+        now,
+      ),
+    ).toThrow(/insuficientes/);
+    expect(() =>
+      applyCommand(
+        p,
+        {
+          type: "submit_design",
+          sourceJourneyId: id,
+          sourceJourneyHash: "a".repeat(64),
+          design: complete(),
+        },
+        actor,
+        now,
+      ),
+    ).toThrow(/vigente/);
   });
 });

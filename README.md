@@ -51,8 +51,9 @@ API contract: [`docs/api/s001-openapi.yaml`](docs/api/s001-openapi.yaml).
 
 The additive workflow integrates company briefing → structural discovery
 validation → preliminary PRD → explicit owner/admin approval. It displays all
-17 lifecycle stages. Journey supports human-authored partial drafts and separate
-approval after PRD approval; stages 4–17 have **no executor yet**. A blocked next
+17 lifecycle stages. Journey and UI/UX design support human-authored partial
+drafts and separate approval after their prerequisite; stages 5–17 have **no
+executor yet**. A blocked next
 action is not a completed stage or a deployment approval. The PRD is a
 deterministic rendering of supplied requirements, not independent research
 or an AI-generated specification.

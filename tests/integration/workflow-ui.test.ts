@@ -10,6 +10,8 @@ import {
   nextAction,
   journeyFields,
   validateJourney,
+  designFields,
+  validateDesign,
 } from "../../src/workflow/model.js";
 import * as application from "../../src/app.js";
 
@@ -334,7 +336,7 @@ describe("local workflow UI", () => {
     expect(html).toContain('<link rel="icon" href="data:,">');
     expect(html).toContain('for="journey-reason"');
     expect((await app().inject("/workflow/style.css")).body).toContain(
-      "#journey-source{overflow-wrap:anywhere}",
+      "#journey-source,#design-source{overflow-wrap:anywhere}",
     );
     expect(html).toContain("nunca credenciais reais");
     expect(html).toContain('<script src="/workflow/app.js" defer>');
@@ -598,6 +600,62 @@ describe("local workflow UI", () => {
     expect(b.get("journey-editor").disabled).toBe(true);
     expect(b.get("journey-approval").hidden).toBe(true);
     expect(b.get("run").hidden).toBe(true);
+    expect(b.get("next").textContent).toContain("UI/UX");
+    expect(b.get("design-section").hidden).toBe(false);
+    for (const key of designFields) {
+      const field = b.get("design-" + key);
+      expect(field.maxLength).toBe(4000);
+      expect(
+        b
+          .get("design-fields")
+          .querySelectorAll("label")
+          .some((label) => label.htmlFor === field.id && !!label.textContent),
+      ).toBe(true);
+    }
+    const designSource = {
+      sourceJourneyId: p.artifacts.at(-1)!.id,
+      sourceJourneyHash: p.artifacts.at(-1)!.sha256,
+    };
+    for (const key of designFields)
+      b.get("design-" + key).value = "Design " + key;
+    const design = validateDesign(
+      Object.fromEntries(designFields.map((k) => [k, "Design " + k])),
+    );
+    p = applyCommand(
+      p,
+      { type: "submit_design", ...designSource, design },
+      actor,
+      now,
+    );
+    b.respond(state());
+    b.respond([p]);
+    b.get("design-form").listeners.submit();
+    await b.settle();
+    const designSubmit = b.fetch.mock.calls.at(-2)!;
+    expect(JSON.parse(designSubmit[1].body)).toMatchObject({
+      type: "submit_design",
+      ...designSource,
+      design: { informationArchitecture: "Design informationArchitecture" },
+    });
+    b.get("design-reason").value = "Critérios visuais revisados";
+    const designArtifactId = p.artifacts.at(-1)!.id;
+    p = applyCommand(
+      p,
+      {
+        type: "approve_design",
+        ...designSource,
+        artifactId: designArtifactId,
+        reason: "Critérios visuais revisados",
+      },
+      actor,
+      now,
+    );
+    b.respond(state());
+    b.respond([p]);
+    b.get("design-approval").listeners.submit();
+    await b.settle();
+    expect(b.get("design-editor").disabled).toBe(true);
+    expect(b.get("design-approval").hidden).toBe(true);
     expect(b.get("next").textContent).toContain("Sem executor");
   });
 });

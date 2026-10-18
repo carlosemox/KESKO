@@ -16,7 +16,7 @@ O caminho da entrevista original ainda precisa ser vinculado; não inventar seu 
 | 01 Descoberta | discovery | Validação estrutural atual não equivale ao diagnóstico completo |
 | 02 PRD | prd | Template atual não contém todo o PRD de 17 seções |
 | 03 Fluxos | journey | JOURNEY-001: rascunho humano persistido, retomada e aprovação; sem geração por IA |
-| 04 UI/UX | design | Executor ainda ausente |
+| 04 UI/UX | design | DESIGN-001: especificação humana persistida, retomada e aprovação; sem geração de telas |
 | 05 TRD | architecture | Nova ordem coloca arquitetura antes do domínio/schema |
 | 06 Domínio/banco | domain + schema | Agrupa duas etapas, sem perder seus critérios |
 | 07 API | contracts | Executor ainda ausente |

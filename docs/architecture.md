@@ -20,10 +20,10 @@ transactions and forced RLS for workflow tables. Authorization must remain
 backend-owned. Workflow commands use operation IDs and optimistic versions;
 interview writes compare a normalized snapshot version and reject stale writes.
 See the [local draft contract](contracts/interview-draft-v1.md).
-See [authentication](contracts/authentication-v1.md) and the additive
-[human journey contract](contracts/journey-v1.md). Journey commands reuse the
-same snapshot/event transaction, CAS and RLS; the new migration only expands
-the allowed event vocabulary.
+See [authentication](contracts/authentication-v1.md), the additive [human
+journey contract](contracts/journey-v1.md), and the [human UI/UX contract](contracts/design-v1.md).
+Journey and design commands reuse the same snapshot/event transaction, CAS and
+RLS; their migrations only expand the allowed event vocabulary.
 
 Canonical contracts: [tenancy](contracts/s001-tenancy-v1.md),
 [OpenAPI](api/s001-openapi.yaml), and
