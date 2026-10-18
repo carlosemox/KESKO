@@ -35,8 +35,11 @@ the separate PostgreSQL 17 run passes all 109 tests with zero skipped.
 
 Snapshot-version checks reject stale interview writes; queued browser saves use
 the last confirmed version. Reset writes an empty snapshot under that check.
-Completed draft reload and fallback have DOM-harness regression coverage; actual
-browser coverage and server retention remain unverified. Local bearer identity
+Completed draft reload and fallback have DOM-harness regression coverage;
+the execution follow-up adds real Chromium/PostgreSQL coverage for resume,
+conflicts, offline preservation, reset and approval. See the current checkpoint
+for exact results and transient timeout findings. Server retention remains
+unverified. Local bearer identity
 and loopback restriction mean hosted cross-device access is not available.
 Do not promote this vertical to staging/public use based on storage tests alone.
 

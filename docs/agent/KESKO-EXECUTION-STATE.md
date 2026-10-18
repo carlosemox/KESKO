@@ -1,16 +1,18 @@
 # KESKO execution checkpoint
 
 - Branch: `codex/development-flow`.
-- Product SHA: `2a77680`; remaining tooling/harness changes pending consolidation.
+- Consolidated code SHA: `b33212a`; final worker-limit/checkpoint update pending.
 - State: IN_PROGRESS, 2026-10-18.
 - Delivery: Chromium/Playwright 1.64.1 with disposable PostgreSQL; interview resume,
   concurrent conflict, offline recovery, local preservation, synchronized reset,
   briefing/discovery/PRD/human approval and desktop/mobile overflow checks passed.
-- Gates: local verify PASS before final harness fixes (118 tests, 23 DB skips).
+- Gates: local verify PASS (137 tests, 23 DB skips).
   Browser final PASS after serializing heavy tests (2.7m), per-request timing
   attached locally without credentials. Earlier timeout failures are retained as
-  environment contention evidence, not erased. Complete DB gate previously
-  PASS (125/125, zero skips),
+  environment contention evidence, not erased. Final PostgreSQL gate: 160 passed,
+  zero failed/skipped (16 files); two concurrent workers, test isolation retained.
+  Subprocess stop regression waits for readiness within 30s instead of assuming
+  startup within 3s. All assertions preserved. Owned container cleanup confirmed.
   owned-container cleanup confirmed; dependency audit no known vulnerabilities;
   scoped secret-pattern scan no matches. CI pending push.
 - Cleanup: prior owned container a936560bb2c407f30cf90e524c98db77743107b936bcc3dce998b405de1fe096
@@ -25,8 +27,9 @@
   versions; typed async lint and typecheck PASS. Broad gates rerun before publish.
 - Blocks: real Supabase Auth/JWKS resources not verified. Harness inactive;
   real trusted reviewer/key, authorization.json and scoped sentinel.json absent.
-- Next: full DB result, independent follow-up, scoped commits, normal push and
-  Draft PR; then current-SHA CI and next eligible product increment.
+- Next: normal push and Draft PR, current-SHA CI, then authentication adapter
+  and next eligible product increment. Connected Supabase inventory contains no
+  identifiable KESKO project; unrelated projects were not accessed or changed.
 
 Documentation source for browser setup: https://playwright.dev/docs/intro.
 Context7 lookup was attempted but its transport was unavailable; official

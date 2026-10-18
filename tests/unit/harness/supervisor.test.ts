@@ -459,7 +459,9 @@ describe("KESKO harness supervisor", () => {
       const result = await runCycle({
         stateDir: f.dir,
         checkoutDir: f.checkout,
-        maxRuntimeMs: 3000,
+        // This case tests stop.flag after the descendant announces readiness,
+        // not process startup speed on a contended host.
+        maxRuntimeMs: 30_000,
         shutdownMs: 1000,
         execute: (context) => {
           signal = context.signal;
