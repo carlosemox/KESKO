@@ -1,12 +1,12 @@
 # KESKO execution checkpoint
 
 - Branch: `codex/development-flow`.
-- Published baseline SHA: `8f19b286735610b5718c69f4c15912e4383b1c45`.
+- Verified implementation SHA: `7e8a0529f4c5668c39b89f98909288e58cf6576e`.
 - PR: https://github.com/carlosemox/KESKO/pull/3 — Draft.
-- CI: https://github.com/carlosemox/KESKO/actions/runs/39155286082 — SUCCESS,
-  160 PostgreSQL tests and Chromium scenario passed on that exact SHA; all jobs
-  and steps inspected. New P1 changes require a new CI run before approval.
-- State: P1_LOCAL_VERIFIED / CI_PENDING, 2026-10-18.
+- CI: https://github.com/carlosemox/KESKO/actions/runs/39158695419 — SUCCESS;
+  PostgreSQL and Chromium gates passed on the implementation SHA above. All jobs
+  and steps inspected; companion run 39158692102 also passed.
+- State: P1_READY_FOR_REVIEW / AUTH_PROVIDER_PENDING, 2026-10-18.
 - Delivery: Chromium/Playwright 1.64.1 with disposable PostgreSQL; interview resume,
   concurrent conflict, offline recovery, local preservation, synchronized reset,
   briefing/discovery/PRD/human approval and desktop/mobile overflow checks passed.
@@ -39,7 +39,9 @@
   versions; typed async lint and typecheck PASS. Broad gates rerun before publish.
 - Blocks: real Supabase Auth/JWKS resources not verified. Harness inactive;
   real trusted reviewer/key, authorization.json and scoped sentinel.json absent.
-- Next: commit/push P1, update Draft PR and verify its exact-SHA CI. Then real
-  user acceptance of Journey in the platform and provider/session integration.
+- Next: real user acceptance of Journey in the platform and provider/session
+  integration. Owner must identify the authorized Supabase organization/project;
+  do not send credentials in chat. Ordinary development remains permitted;
+  persistent Harness requires independently provisioned trust and signed scope.
   Connected Supabase inventory contains no
   identifiable KESKO project; unrelated projects were not accessed or changed.
