@@ -41,7 +41,19 @@ test("real PostgreSQL interview: recovery, conflict, offline, reset and human ap
   const page = await context.newPage();
   const errors: string[] = [];
   const network: object[] = [];
+  let offlineExpected = false;
   const observe = (target: Page) => {
+    target.on("pageerror", (error) => errors.push(error.message));
+    target.on("console", (message) => {
+      if (message.type() !== "error") return;
+      const expectedConflict =
+        message.location().url.endsWith(draftPath) &&
+        /Failed to load resource.*409/.test(message.text());
+      const expectedOffline =
+        offlineExpected &&
+        /Failed to load resource.*net::ERR_/.test(message.text());
+      if (!expectedConflict && !expectedOffline) errors.push(message.text());
+    });
     target.on("response", (response) => {
       network.push({
         path: new URL(response.url()).pathname,
@@ -59,14 +71,13 @@ test("real PostgreSQL interview: recovery, conflict, offline, reset and human ap
   };
   observe(page);
   context.on("page", observe);
-  page.on("pageerror", (e) => errors.push(e.message));
   try {
     await enter(page);
+    await expect(page.locator("#interview-answer")).toBeFocused();
     await expect(page.locator("#projects")).toContainText("Nenhum");
     expect((await answer(page, answers[0])).status()).toBe(200);
     await page.close();
     const resumed = await context.newPage();
-    resumed.on("pageerror", (e) => errors.push(e.message));
     await enter(resumed);
     await expect(resumed.locator("#interview-progress")).toHaveText(
       "Pergunta 2 de 11",
@@ -94,6 +105,7 @@ test("real PostgreSQL interview: recovery, conflict, offline, reset and human ap
       await other.close();
     }
 
+    offlineExpected = true;
     await context.setOffline(true);
     await resumed.locator("#interview-answer").fill(answers[2]);
     await resumed.locator("#interview-next").click();
@@ -101,6 +113,7 @@ test("real PostgreSQL interview: recovery, conflict, offline, reset and human ap
       "salvo neste navegador",
     );
     await context.setOffline(false);
+    offlineExpected = false;
     await enter(resumed);
     await expect(resumed.locator("#interview-progress")).toHaveText(
       "Pergunta 4 de 11",
@@ -142,6 +155,55 @@ test("real PostgreSQL interview: recovery, conflict, offline, reset and human ap
     await resumed.locator("#approve").click();
     await expect(resumed.locator("#next")).toContainText("PRD aprovado");
     await expect(resumed.locator("#artifacts")).toContainText("Aprovado por");
+    await expect(resumed.locator("#journey-form")).toBeVisible();
+    await resumed
+      .locator("#journey-profiles")
+      .fill("Atendente da empresa sintética");
+    await resumed.locator("#journey-submit").click();
+    await expect(resumed.locator("#status")).toHaveText("Operação registrada.");
+    await resumed.reload();
+    await resumed.getByRole("button", { name: "Começar entrevista" }).click();
+    await resumed
+      .locator("#projects")
+      .getByRole("button", { name: "Projeto E2E sintético" })
+      .click();
+    await expect(resumed.locator("#journey-profiles")).toHaveValue(
+      "Atendente da empresa sintética",
+    );
+    const journey = {
+      channels: "Painel web interno",
+      entry: "Atendente abre o painel",
+      preconditions: "Atendente pertence à empresa e possui permissão",
+      mainSteps: "Preenche uma solicitação e confirma o salvamento",
+      result: "Solicitação registrada e disponível para consulta",
+      alternatives: "Consulta solicitação já existente antes de criar outra",
+      errors: "Entrada inválida apresenta mensagem junto ao campo",
+      cancellation: "Cancela antes de confirmar e mantém o registro anterior",
+      recovery:
+        "Após falha de rede, reabre o registro para conferir o resultado",
+      permissions:
+        "Atendente cria e consulta apenas solicitações da sua empresa",
+      data: "Identificador sintético e descrição da solicitação",
+      states:
+        "Carregando, lista vazia, confirmação de sucesso e erro recuperável",
+      analytics:
+        "Contagem agregada de solicitações concluídas sem dados pessoais",
+      abandonment: "Usuário abandona antes da confirmação",
+    };
+    for (const [field, value] of Object.entries(journey))
+      await resumed.locator(`#journey-${field}`).fill(value);
+    await resumed.locator("#journey-submit").click();
+    await expect(resumed.locator("#status")).toHaveText("Operação registrada.");
+    await resumed
+      .locator("#journey-reason")
+      .fill("Revisão humana sintética de caminhos e exceções");
+    await resumed.locator("#journey-approve").click();
+    await expect(resumed.locator("#journey-profiles")).toBeDisabled();
+    await expect(resumed.locator("#journey-submit")).toBeDisabled();
+    await expect(resumed.locator("#steps")).toContainText(
+      "Jornada e estados — Concluída",
+    );
+    await expect(resumed.locator("#next")).toContainText("Sem executor");
     for (const width of [1280, 390]) {
       await resumed.setViewportSize({ width, height: 844 });
       expect(
@@ -150,7 +212,37 @@ test("real PostgreSQL interview: recovery, conflict, offline, reset and human ap
         ),
       ).toBe(true);
     }
+    await expect(resumed.locator("html")).toHaveAttribute("lang", "pt-BR");
+    await expect(resumed.getByRole("heading", { level: 1 })).toHaveCount(1);
+    await expect(resumed.locator("#status")).toHaveAttribute(
+      "aria-live",
+      "polite",
+    );
+    expect(
+      await resumed.locator("input,textarea,select").evaluateAll((elements) =>
+        elements.every((element) => {
+          const control = element as HTMLInputElement;
+          return Boolean(
+            control.labels?.length ||
+              control.getAttribute("aria-label") ||
+              control.getAttribute("aria-labelledby"),
+          );
+        }),
+      ),
+    ).toBe(true);
     expect(errors).toEqual([]);
+    expect(
+      network.filter(
+        (record) =>
+          "status" in record &&
+          Number(record.status) >= 400 &&
+          !(
+            record.status === 409 &&
+            "path" in record &&
+            record.path === draftPath
+          ),
+      ),
+    ).toEqual([]);
   } finally {
     await test.info().attach("network-timing", {
       body: JSON.stringify(network),

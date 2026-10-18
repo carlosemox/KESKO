@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import { Pool } from "pg";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { registerWorkflowRoutes } from "../../src/workflow/routes.js";
+import { registerIdentityHook } from "../../src/http/auth-context.js";
 
 const apps: ReturnType<typeof Fastify>[] = [];
 afterEach(async () => {
@@ -15,6 +16,7 @@ function app() {
     connectionString: "postgresql://localhost:1/unreachable",
     connectionTimeoutMillis: 50,
   });
+  registerIdentityHook(instance);
   registerWorkflowRoutes(instance, pool);
   instance.addHook("onClose", async () => {
     await pool.end();

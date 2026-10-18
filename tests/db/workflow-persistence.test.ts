@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTenantWithOwner } from "../../src/db/tenant-repository.js";
 import { registerWorkflowRoutes } from "../../src/workflow/routes.js";
 import type { WorkflowDetail } from "../../src/workflow/repository.js";
+import { registerIdentityHook } from "../../src/http/auth-context.js";
+import { journeyFields, validateJourney } from "../../src/workflow/model.js";
 
 const dbTests = process.env.RUN_DB_TESTS === "1" ? describe : describe.skip;
 const owner = "00000000-0000-0000-0000-000000000001";
@@ -19,6 +21,7 @@ dbTests("workflow PostgreSQL and HTTP", () => {
   let interviewBase: string;
   const makeApp = () => {
     const a = Fastify();
+    registerIdentityHook(a);
     registerWorkflowRoutes(a, pool);
     return a;
   };
@@ -400,7 +403,7 @@ dbTests("workflow PostgreSQL and HTTP", () => {
       member,
     );
     expect(approved.nextAction).toMatchObject({
-      type: "blocked",
+      type: "submit_journey",
       stepId: "journey",
     });
     expect(state.project.artifacts.at(-1)).toMatchObject({
@@ -485,6 +488,202 @@ dbTests("workflow PostgreSQL and HTTP", () => {
       await pool.query("delete from public.tenants where id=$1", [other.id]);
     }
   });
+  it("persists resumable human journeys with source checks, CAS, replay and explicit admin approval", async () => {
+    let state: WorkflowDetail = await create();
+    const url = `${base}/${state.project.id}/commands`;
+    const execute = async (command: object) => {
+      const response = await request("POST", url, {
+        operationId: randomUUID(),
+        expectedVersion: state.project.version,
+        ...command,
+      });
+      expect(response.statusCode).toBe(200);
+      state = response.json().data;
+    };
+    await execute({
+      type: "update_briefing",
+      briefing: Object.fromEntries(
+        [
+          "company",
+          "problem",
+          "audience",
+          "objective",
+          "successMetric",
+          "scope",
+          "outOfScope",
+          "requirements",
+          "acceptanceCriteria",
+          "nonFunctional",
+        ].map((k) => [k, "Synthetic"]),
+      ),
+    });
+    await execute({ type: "run_step", stepId: "discovery" });
+    await execute({ type: "run_step", stepId: "prd" });
+    await execute({ type: "approve_prd", reason: "Reviewed" });
+    const source = {
+      sourcePrdId: state.project.artifacts.at(-1)!.id,
+      sourcePrdHash: state.project.artifacts.at(-1)!.sha256,
+    };
+    const partial = {
+      type: "submit_journey",
+      ...source,
+      journey: { profiles: "Equipe" },
+      operationId: randomUUID(),
+      expectedVersion: state.project.version,
+    };
+    const retries = await Promise.all([
+      request("POST", url, partial),
+      request("POST", url, partial),
+    ]);
+    expect(retries.map((r) => r.statusCode)).toEqual([200, 200]);
+    expect(retries[0].json()).toEqual(retries[1].json());
+    state = retries[0].json().data;
+    const savedPartial = structuredClone(state.project.artifacts.at(-1)!);
+    expect(savedPartial.journeyInput?.journey).toMatchObject({
+      profiles: "Equipe",
+      entry: "",
+    });
+    expect(savedPartial.approvedBy).toBeUndefined();
+    expect(state.history.at(-1)?.details.input).toMatchObject({
+      type: "submit_journey",
+      ...source,
+      journey: { profiles: "Equipe", entry: "" },
+    });
+    await app.close();
+    app = makeApp();
+    expect(
+      (await request("GET", `${base}/${state.project.id}`)).json().data,
+    ).toEqual(state);
+    const approval = {
+      type: "approve_journey",
+      ...source,
+      artifactId: savedPartial.id,
+      reason: "Reviewed",
+      operationId: randomUUID(),
+      expectedVersion: state.project.version,
+    };
+    expect((await request("POST", url, approval)).statusCode).toBe(409);
+    expect(
+      (
+        await request("POST", url, {
+          ...partial,
+          journey: { profiles: "Changed" },
+        })
+      ).statusCode,
+    ).toBe(409);
+    expect(
+      (await request("POST", url, { ...partial, operationId: randomUUID() }))
+        .statusCode,
+    ).toBe(409);
+    const complete = validateJourney(
+      Object.fromEntries(journeyFields.map((k) => [k, "Human " + k])),
+    );
+    const revised = {
+      ...partial,
+      expectedVersion: state.project.version,
+      journey: complete,
+    };
+    for (const actor of [viewer, member, outsider]) {
+      expect(
+        (
+          await request(
+            "POST",
+            url,
+            { ...revised, operationId: randomUUID() },
+            actor,
+          )
+        ).statusCode,
+      ).toBe(actor === outsider ? 404 : 403);
+      expect(
+        (
+          await request(
+            "POST",
+            url,
+            { ...approval, operationId: randomUUID() },
+            actor,
+          )
+        ).statusCode,
+      ).toBe(actor === outsider ? 404 : 403);
+    }
+    for (const changed of [
+      { sourcePrdId: randomUUID() },
+      { sourcePrdHash: "a".repeat(64) },
+    ]) {
+      expect(
+        (
+          await request("POST", url, {
+            ...revised,
+            ...changed,
+            operationId: randomUUID(),
+          })
+        ).statusCode,
+      ).toBe(409);
+      expect(
+        (
+          await request("POST", url, {
+            ...approval,
+            ...changed,
+            operationId: randomUUID(),
+          })
+        ).statusCode,
+      ).toBe(409);
+    }
+    const race = await Promise.all(
+      [1, 2].map(() =>
+        request("POST", url, { ...revised, operationId: randomUUID() }),
+      ),
+    );
+    expect(race.map((r) => r.statusCode).sort()).toEqual([200, 409]);
+    state = race.find((r) => r.statusCode === 200)!.json().data;
+    expect(state.project.artifacts.at(-2)).toEqual(savedPartial);
+    expect(
+      (
+        await request("POST", url, {
+          ...approval,
+          expectedVersion: state.project.version,
+          operationId: randomUUID(),
+        })
+      ).statusCode,
+    ).toBe(409);
+    await pool.query(
+      "update public.tenant_memberships set role='admin' where tenant_id=$1 and user_id=$2",
+      [tenantId, member],
+    );
+    const latest = {
+      ...approval,
+      artifactId: state.project.artifacts.at(-1)!.id,
+      expectedVersion: state.project.version,
+      operationId: randomUUID(),
+    };
+    const approved = await request("POST", url, latest, member);
+    expect(approved.statusCode).toBe(200);
+    state = approved.json().data;
+    expect(state.project.artifacts.at(-1)).toMatchObject({
+      approvedBy: member,
+      verification: "human_review",
+      journeyInput: { ...source, authorship: "human", journey: complete },
+    });
+    expect(approved.json().data.nextAction).toMatchObject({
+      type: "blocked",
+      stepId: "design",
+    });
+    expect((await request("POST", url, latest, member)).json().data).toEqual(
+      state,
+    );
+    expect(
+      (
+        await request("POST", url, {
+          ...revised,
+          expectedVersion: state.project.version,
+          operationId: randomUUID(),
+        })
+      ).statusCode,
+    ).toBe(409);
+    expect(
+      (await request("GET", `${base}/${state.project.id}`)).json().data,
+    ).toEqual(state);
+    expect(state.history).toHaveLength(state.project.version);
+  });
   it("retains every briefing input and failed validation result without artifacts", async () => {
     const { project } = await create();
     const url = `${base}/${project.id}/commands`;
@@ -565,6 +764,19 @@ dbTests("workflow PostgreSQL and HTTP", () => {
         { type: "run_step", stepId: "discovery" },
         { type: "update_briefing", briefing: {} },
         { type: "approve_prd", reason: "Reviewed" },
+        {
+          type: "submit_journey",
+          sourcePrdId: randomUUID(),
+          sourcePrdHash: "a".repeat(64),
+          journey: {},
+        },
+        {
+          type: "approve_journey",
+          sourcePrdId: randomUUID(),
+          sourcePrdHash: "a".repeat(64),
+          artifactId: randomUUID(),
+          reason: "Reviewed",
+        },
       ]) {
         expect(
           (

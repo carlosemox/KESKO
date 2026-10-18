@@ -3,6 +3,7 @@ import Fastify from "fastify";
 import { Pool } from "pg";
 import { buildApp } from "../../../src/app.js";
 import { registerWorkflowRoutes } from "../../../src/workflow/routes.js";
+import { registerIdentityHook } from "../../../src/http/auth-context.js";
 
 const id = "00000000-0000-0000-0000-000000000001";
 describe("local development network boundary", () => {
@@ -44,6 +45,7 @@ describe("local development network boundary", () => {
       connectionString: "postgresql://localhost:1/unreachable",
       connectionTimeoutMillis: 50,
     });
+    registerIdentityHook(app);
     registerWorkflowRoutes(app, pool);
     try {
       for (const method of ["GET", "POST"] as const) {

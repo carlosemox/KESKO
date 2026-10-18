@@ -35,6 +35,9 @@ const env = { ...process.env };
 delete env.DATABASE_URL;
 delete env.PGPASSWORD;
 delete env.POSTGRES_PASSWORD;
+// Synthetic fixtures must never inherit an unrelated real identity provider.
+delete env.SUPABASE_JWT_ISSUER;
+delete env.SUPABASE_JWT_AUDIENCE;
 const redact = (value) =>
   String(value)
     .replaceAll(password, "[REDACTED]")

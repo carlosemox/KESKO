@@ -12,8 +12,10 @@ This file is their entry point, not a replacement specification.
 
 Local tenant/owner/brand onboarding; a guided interview with browser draft and
 backend draft storage; project briefing, structural discovery, preliminary PRD
-and explicit human approval. Seventeen stages are displayed; stages 3–17 do
-not have executors. A preliminary PRD is deterministic rendering of input.
+and explicit human approval. Journey now supports human-authored partial drafts,
+resumption and separate approval against the approved PRD. Seventeen stages are
+displayed; stages 4–17 do not have executors. A preliminary PRD is deterministic
+rendering of input; journey answers are supplied by the user, not invented by AI.
 
 The application is a synthetic local development vertical. Public user login,
 cross-device hosted access, staging, deployment and autonomous remote agents
@@ -25,6 +27,7 @@ make a loopback-only service reachable from another device.
 Preserve tenant isolation, explicit approvals, evidence and resumability.
 Business questions belong in the platform, in plain language. Future slices
 must use the existing contracts and approved product criteria. Draft writes now
-use snapshot-version checks and support reset; retention, real browser coverage
-and production authentication still need focused work before hosted use.
+use snapshot-version checks and support reset. Chromium/PostgreSQL validates the
+local flow. A server-configured JWT/JWKS verifier is implemented, but real provider
+integration, sessions/logout, retention and hosted use remain unverified.
 See [quality](docs/quality.md).

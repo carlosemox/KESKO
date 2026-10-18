@@ -22,6 +22,29 @@ export const briefingFields = [
   "constraints",
 ] as const;
 export type Briefing = Record<(typeof briefingFields)[number], string>;
+export const journeyFields = [
+  "profiles",
+  "channels",
+  "entry",
+  "preconditions",
+  "mainSteps",
+  "result",
+  "alternatives",
+  "errors",
+  "cancellation",
+  "recovery",
+  "permissions",
+  "data",
+  "states",
+  "analytics",
+  "abandonment",
+] as const;
+export type Journey = Record<(typeof journeyFields)[number], string>;
+type JourneySource = { sourcePrdId: string; sourcePrdHash: string };
+export interface JourneyInput extends JourneySource {
+  journey: Journey;
+  authorship: "human";
+}
 export interface InterviewDraft {
   index: number;
   answers: Partial<Briefing>;
@@ -116,6 +139,7 @@ export interface Artifact {
   createdBy: string;
   approvedBy?: string;
   approvalReason?: string;
+  journeyInput?: JourneyInput;
 }
 export interface ProjectInput {
   name: string;
@@ -139,6 +163,12 @@ export interface Project {
 export type Command =
   | { type: "run_step"; stepId: string }
   | { type: "update_briefing"; briefing: Partial<Briefing> }
+  | ({ type: "submit_journey"; journey: Journey } & JourneySource)
+  | ({
+      type: "approve_journey";
+      artifactId: string;
+      reason: string;
+    } & JourneySource)
   | { type: "approve_prd"; reason: string };
 export type CommandRequest = Command & {
   operationId: string;
@@ -243,6 +273,10 @@ export function validateCommand(value: unknown): CommandRequest {
     "stepId",
     "briefing",
     "reason",
+    "journey",
+    "sourcePrdId",
+    "sourcePrdHash",
+    "artifactId",
   ]);
   if (
     !Number.isSafeInteger(input.expectedVersion) ||
@@ -254,6 +288,34 @@ export function validateCommand(value: unknown): CommandRequest {
     expectedVersion: Number(input.expectedVersion),
   };
   const common = ["operationId", "expectedVersion", "type"];
+  if (input.type === "submit_journey" || input.type === "approve_journey") {
+    if (Buffer.byteLength(JSON.stringify(value), "utf8") > 65536)
+      throw new WorkflowError("INVALID_INPUT", "Comando excede 64 KiB");
+    const source = validateJourneySource(input);
+    if (input.type === "submit_journey") {
+      object(input, [...common, "sourcePrdId", "sourcePrdHash", "journey"]);
+      return {
+        ...base,
+        ...source,
+        type: "submit_journey",
+        journey: validateJourney(input.journey),
+      };
+    }
+    object(input, [
+      ...common,
+      "sourcePrdId",
+      "sourcePrdHash",
+      "artifactId",
+      "reason",
+    ]);
+    return {
+      ...base,
+      ...source,
+      type: "approve_journey",
+      artifactId: uuid(input.artifactId),
+      reason: text(input.reason, 2000),
+    };
+  }
   if (input.type === "run_step") {
     object(input, [...common, "stepId"]);
     if (!definitions.some(([id]) => id === input.stepId))
@@ -276,6 +338,23 @@ export function validateCommand(value: unknown): CommandRequest {
 }
 export function fingerprint(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+export function validateJourney(value: unknown): Journey {
+  const input = object(value, journeyFields);
+  return Object.fromEntries(
+    journeyFields.map((k) => [k, text(input[k] ?? "", 2000, false)]),
+  ) as Journey;
+}
+function validateJourneySource(input: Record<string, unknown>): JourneySource {
+  if (
+    typeof input.sourcePrdHash !== "string" ||
+    !/^[a-f0-9]{64}$/.test(input.sourcePrdHash)
+  )
+    throw new WorkflowError("INVALID_INPUT", "Hash do PRD inválido");
+  return {
+    sourcePrdId: uuid(input.sourcePrdId),
+    sourcePrdHash: input.sourcePrdHash,
+  };
 }
 export function newProject(
   input: ProjectInput,
@@ -321,6 +400,18 @@ export function nextAction(project: Project): {
   );
   if (!step)
     return { type: "none", stepId: "", reason: "Nenhuma ação permitida" };
+  if (step.id === "journey")
+    return {
+      type:
+        step.state === "awaiting_approval"
+          ? "approve_journey"
+          : "submit_journey",
+      stepId: "journey",
+      reason:
+        step.state === "awaiting_approval"
+          ? "Revise a jornada humana e aprove explicitamente; lacunas críticas impedem avanço"
+          : "Descreva a jornada a partir do PRD aprovado; nenhuma resposta será inventada",
+    };
   if (!["discovery", "prd"].includes(step.id))
     return {
       type: "blocked",
@@ -383,6 +474,76 @@ export function applyCommand(
       next.tenantId,
       now,
     ).steps;
+  } else if (
+    command.type === "submit_journey" ||
+    command.type === "approve_journey"
+  ) {
+    const source = [...next.artifacts]
+      .reverse()
+      .find((a) => a.stepId === "prd" && a.revision === next.briefingRevision);
+    const step = next.steps.find((s) => s.id === "journey");
+    if (!step || step.state === "completed")
+      throw new WorkflowError(
+        "CONFLICT",
+        "Jornada aprovada é imutável; crie uma mudança",
+      );
+    if (
+      next.steps.find((s) => s.id === "prd")?.state !== "completed" ||
+      !source ||
+      source.verification !== "human_review" ||
+      !source.approvedBy ||
+      source.id !== command.sourcePrdId ||
+      source.sha256 !== command.sourcePrdHash
+    )
+      throw new WorkflowError(
+        "CONFLICT",
+        "PRD fonte não é a revisão aprovada vigente",
+      );
+    if (command.type === "submit_journey") {
+      const journeyInput: JourneyInput = {
+        authorship: "human",
+        sourcePrdId: source.id,
+        sourcePrdHash: source.sha256,
+        journey: validateJourney(command.journey),
+      };
+      addArtifact("journey", JSON.stringify(journeyInput, null, 2), "draft");
+      next.artifacts[next.artifacts.length - 1].journeyInput = journeyInput;
+      step.state = "awaiting_approval";
+      step.reason =
+        "Jornada escrita por pessoa; aguardando revisão e aprovação humana";
+    } else {
+      const artifact = [...next.artifacts]
+        .reverse()
+        .find(
+          (a) => a.stepId === "journey" && a.revision === next.briefingRevision,
+        );
+      if (
+        step.state !== "awaiting_approval" ||
+        !artifact ||
+        artifact.id !== command.artifactId ||
+        artifact.verification !== "draft" ||
+        artifact.journeyInput?.sourcePrdId !== source.id ||
+        artifact.journeyInput.sourcePrdHash !== source.sha256
+      )
+        throw new WorkflowError(
+          "CONFLICT",
+          "Não há rascunho vigente de jornada para esta aprovação",
+        );
+      if (
+        Object.values(validateJourney(artifact.journeyInput.journey)).some(
+          (v) => !v || /DADO INSUFICIENTE/i.test(v),
+        )
+      )
+        throw new WorkflowError(
+          "CONFLICT",
+          "Resolva os dados insuficientes antes de aprovar a jornada",
+        );
+      artifact.verification = "human_review";
+      artifact.approvedBy = actor;
+      artifact.approvalReason = text(command.reason, 2000);
+      step.state = "completed";
+      step.reason = null;
+    }
   } else if (command.type === "approve_prd") {
     const artifact = [...next.artifacts]
       .reverse()

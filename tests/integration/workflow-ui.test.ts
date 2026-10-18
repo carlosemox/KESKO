@@ -4,7 +4,13 @@ import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { registerWorkflowUi } from "../../src/workflow/ui.js";
 import { startLocalServer } from "../../src/server.js";
-import { newProject } from "../../src/workflow/model.js";
+import {
+  newProject,
+  applyCommand,
+  nextAction,
+  journeyFields,
+  validateJourney,
+} from "../../src/workflow/model.js";
 import * as application from "../../src/app.js";
 
 const apps: ReturnType<typeof Fastify>[] = [];
@@ -23,6 +29,9 @@ function app() {
 // Minimal DOM harness runs the actual served script, without a browser dependency.
 class Element {
   id = "";
+  htmlFor = "";
+  maxLength = 0;
+  required = false;
   textContent = "";
   value = "";
   hidden = false;
@@ -52,8 +61,10 @@ async function browser(draft: unknown = null, localDraft: unknown = null) {
   const response = await app().inject("/workflow/app.js");
   const elements = new Map<string, Element>();
   const get = (id: string): Element => {
+    const descendants = (n: Element): Element[] =>
+      n.children.flatMap((c) => [c, ...descendants(c)]);
     const child = [...elements.values()]
-      .flatMap((n) => n.children)
+      .flatMap(descendants)
       .find((n) => n.id === id);
     if (child) return child;
     if (!elements.has(id)) elements.set(id, new Element());
@@ -320,6 +331,11 @@ describe("local workflow UI", () => {
     expect(html).toContain('lang="pt-BR"');
     expect(html).toContain('aria-live="polite"');
     expect(html).toContain('for="tenant"');
+    expect(html).toContain('<link rel="icon" href="data:,">');
+    expect(html).toContain('for="journey-reason"');
+    expect((await app().inject("/workflow/style.css")).body).toContain(
+      "#journey-source{overflow-wrap:anywhere}",
+    );
     expect(html).toContain("nunca credenciais reais");
     expect(html).toContain('<script src="/workflow/app.js" defer>');
     expect(html).not.toMatch(/https?:\/\//);
@@ -348,7 +364,7 @@ describe("local workflow UI", () => {
     expect(b.fetch.mock.calls[2][1].body).toBe(first[1].body);
     expect(b.fetch.mock.calls[2][0]).toBe(first[0]);
   });
-  it("renders blocked journey, all stages and untrusted content as text after reopening", async () => {
+  it("renders blocked design, all stages and untrusted content as text after reopening", async () => {
     const b = await browser();
     const project = newProject(
       { name: "<img src=x onerror=alert(1)>", kind: "project", briefing: {} },
@@ -367,7 +383,7 @@ describe("local workflow UI", () => {
       history: [{ reason: "<script>danger</script>" }],
       nextAction: {
         type: "blocked",
-        stepId: "journey",
+        stepId: "design",
         reason: "Sem executor verificado para esta etapa",
       },
     });
@@ -385,7 +401,7 @@ describe("local workflow UI", () => {
       "<script>danger</script>",
     );
   });
-  it("sends approval reason and expectedVersion, then shows blocked journey", async () => {
+  it("sends PRD approval reason and expectedVersion, then offers human journey input", async () => {
     const b = await browser();
     const project = newProject(
       { name: "Review", kind: "project", briefing: {} },
@@ -420,9 +436,9 @@ describe("local workflow UI", () => {
       project,
       history: [],
       nextAction: {
-        type: "blocked",
+        type: "submit_journey",
         stepId: "journey",
-        reason: "Sem executor verificado",
+        reason: "Descreva a jornada humana",
       },
     });
     b.respond([project]);
@@ -440,6 +456,148 @@ describe("local workflow UI", () => {
       "Bearer local:00000000-0000-0000-0000-000000000001",
     );
     expect(b.get("run").hidden).toBe(true);
-    expect(b.get("next").textContent).toContain("Sem executor verificado");
+    expect(b.get("next").textContent).toContain("jornada humana");
+    expect(b.get("journey-section").hidden).toBe(false);
+  });
+  it("saves and reopens partial human answers, retries exact bytes, and separately approves the latest saved draft", async () => {
+    const b = await browser();
+    const actor = randomUUID(),
+      now = new Date().toISOString();
+    let p = newProject(
+      {
+        name: "Journey",
+        kind: "project",
+        briefing: Object.fromEntries(
+          [
+            "company",
+            "problem",
+            "audience",
+            "objective",
+            "successMetric",
+            "scope",
+            "outOfScope",
+            "requirements",
+            "acceptanceCriteria",
+            "nonFunctional",
+          ].map((k) => [k, "Synthetic"]),
+        ),
+      },
+      actor,
+      randomUUID(),
+      randomUUID(),
+      now,
+    );
+    for (const stepId of ["discovery", "prd"])
+      p = applyCommand(p, { type: "run_step", stepId }, actor, now);
+    p = applyCommand(
+      p,
+      { type: "approve_prd", reason: "Reviewed" },
+      actor,
+      now,
+    );
+    const source = {
+      sourcePrdId: p.artifacts[1].id,
+      sourcePrdHash: p.artifacts[1].sha256,
+    };
+    const state = () => ({
+      project: p,
+      history: [],
+      nextAction: nextAction(p),
+    });
+    b.respond(null);
+    b.respond([p]);
+    b.get("context").listeners.submit();
+    await b.settle();
+    b.respond(state());
+    b.get("projects").querySelectorAll("button")[0].listeners.click();
+    await b.settle();
+    expect(b.get("journey-profiles").value).toBe("");
+    for (const key of journeyFields) {
+      const field = b.get("journey-" + key);
+      expect(field.maxLength).toBe(2000);
+      expect(field.required).toBe(false);
+      expect(
+        b
+          .get("journey-fields")
+          .querySelectorAll("label")
+          .some((label) => label.htmlFor === field.id && !!label.textContent),
+      ).toBe(true);
+    }
+    expect(b.get("journey-approval").hidden).toBe(true);
+    b.get("journey-profiles").value = "<script>human text</script>";
+    b.fetch.mockRejectedValueOnce(new Error("timeout"));
+    b.get("journey-form").listeners.submit();
+    await b.settle();
+    const first = b.fetch.mock.calls.at(-1)!;
+    expect(JSON.parse(first[1].body)).toMatchObject({
+      type: "submit_journey",
+      ...source,
+      journey: { profiles: "<script>human text</script>", entry: "" },
+    });
+    expect(b.get("journey-editor").disabled).toBe(true);
+    p = applyCommand(p, JSON.parse(first[1].body), actor, now);
+    b.respond(state());
+    b.respond([p]);
+    b.get("retry").listeners.click();
+    await b.settle();
+    expect(b.fetch.mock.calls.at(-2)![1].body).toBe(first[1].body);
+    expect(b.get("journey-profiles").value).toBe("<script>human text</script>");
+    expect(b.get("journey-entry").value).toBe("");
+    expect(b.get("journey-approval").hidden).toBe(false);
+    b.respond(state());
+    b.get("projects").querySelectorAll("button")[0].listeners.click();
+    await b.settle();
+    expect(b.get("journey-profiles").value).toBe("<script>human text</script>");
+    for (const key of journeyFields)
+      b.get("journey-" + key).value = "Human " + key;
+    b.get("journey-reason").value = "Reviewed";
+    const calls = b.fetch.mock.calls.length;
+    b.get("journey-approval").listeners.submit();
+    await b.settle();
+    expect(b.fetch.mock.calls).toHaveLength(calls);
+    expect(b.get("status").textContent).toContain("Salve as alterações");
+    p = applyCommand(
+      p,
+      {
+        type: "submit_journey",
+        ...source,
+        journey: validateJourney(
+          Object.fromEntries(journeyFields.map((k) => [k, "Human " + k])),
+        ),
+      },
+      actor,
+      now,
+    );
+    b.respond(state());
+    b.respond([p]);
+    b.get("journey-form").listeners.submit();
+    await b.settle();
+    b.get("journey-reason").value = "All paths reviewed";
+    const artifactId = p.artifacts.at(-1)!.id;
+    p = applyCommand(
+      p,
+      {
+        type: "approve_journey",
+        ...source,
+        artifactId,
+        reason: "All paths reviewed",
+      },
+      actor,
+      now,
+    );
+    b.respond(state());
+    b.respond([p]);
+    b.get("journey-approval").listeners.submit();
+    await b.settle();
+    expect(JSON.parse(b.fetch.mock.calls.at(-2)![1].body)).toMatchObject({
+      type: "approve_journey",
+      artifactId,
+      ...source,
+      reason: "All paths reviewed",
+    });
+    expect(b.get("journey-editor").disabled).toBe(true);
+    expect(b.get("journey-approval").hidden).toBe(true);
+    expect(b.get("run").hidden).toBe(true);
+    expect(b.get("next").textContent).toContain("Sem executor");
   });
 });

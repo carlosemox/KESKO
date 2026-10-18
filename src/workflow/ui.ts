@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { isLocalRequest } from "../http/local-boundary.js";
 
 const html = `<!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KESKO · Fluxo de desenvolvimento</title><link rel="stylesheet" href="/workflow/style.css"><script src="/workflow/app.js" defer></script></head>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KESKO · Fluxo de desenvolvimento</title><link rel="icon" href="data:,"><link rel="stylesheet" href="/workflow/style.css"><script src="/workflow/app.js" defer></script></head>
 <body><main><header><p>KESKO / DESENVOLVIMENTO</p><h1>Do briefing à entrega</h1>
 <p class="notice">Somente ambiente local. Use uma identidade local de desenvolvimento, nunca credenciais reais. PRD preliminar gerado a partir do briefing; não é aprovação por IA. Etapas externas dependem de executores ainda indisponíveis.</p></header>
 <form id="context"><fieldset id="context-fields"><legend>Comece por aqui</legend><p>Você pode começar contando sua ideia. Esta versão é uma demonstração local e usa dados sintéticos.</p><button>Começar entrevista</button><details><summary>Configuração técnica (somente demonstração)</summary><p>Não é necessário entender estes campos para usar a entrevista.</p><label for="tenant">Tenant UUID</label><input id="tenant" required autocomplete="off"><label for="actor">Usuário UUID · Bearer local:UUID</label><input id="actor" required autocomplete="off"></details></fieldset></form>
@@ -11,9 +11,10 @@ const html = `<!doctype html>
 <section aria-label="Projeto"><h2 id="title" tabindex="-1">Novo projeto</h2><form id="briefing-form"><fieldset id="editor" disabled><legend>Briefing · rascunhos incompletos podem ser salvos</legend><label for="name">Nome</label><input id="name" required maxlength="120"><label for="kind">Tipo</label><select id="kind"><option value="project">Projeto</option><option value="change">Mudança</option></select><div id="fields"></div><button id="save">Criar projeto</button></fieldset></form>
 <section id="interview" aria-labelledby="interview-title"><h2 id="interview-title">Vamos começar pela sua ideia</h2><p>Você não precisa saber desenvolver sistemas. Responda uma pergunta por vez; o rascunho fica salvo neste navegador para você continuar depois.</p><p id="interview-progress" role="status"></p><form id="interview-form"><label id="interview-label" for="interview-answer"></label><p id="interview-hint"></p><textarea id="interview-answer" required maxlength="4000"></textarea><button id="interview-back" type="button">Voltar</button><button id="interview-next">Continuar</button></form><button id="interview-clear" type="button">Limpar rascunho da entrevista</button></section>
 <section aria-label="Próxima ação"><h2>Próxima ação</h2><p id="next">Salve o briefing para iniciar.</p><button id="run" hidden>Executar etapa local</button><form id="approval" hidden><label for="reason">Justificativa da aprovação humana do PRD (owner/admin)</label><textarea id="reason" required maxlength="2000"></textarea><button id="approve">Aprovar PRD</button></form></section>
+<section id="journey-section" hidden aria-labelledby="journey-title"><h2 id="journey-title">Jornada escrita por você</h2><p>Descreva o caminho de cada perfil com base no PRD aprovado. Salve mesmo incompleto e retome depois. Quando não souber, registre DADO INSUFICIENTE; resolva as lacunas antes de aprovar.</p><p id="journey-source"></p><form id="journey-form"><fieldset id="journey-editor"><legend>Rascunho humano · Prompt 03</legend><div id="journey-fields"></div><button id="journey-submit">Salvar rascunho da jornada</button></fieldset></form><form id="journey-approval" hidden><label for="journey-reason">Justificativa da aprovação humana da jornada (owner/admin)</label><p>Confirme que revisou todos os perfis, caminhos e exceções e que nenhum fluxo crítico está indefinido.</p><textarea id="journey-reason" required maxlength="2000"></textarea><button id="journey-approve">Aprovar jornada</button></form></section>
 <h2>17 etapas</h2><ol id="steps"></ol><h2>Evidências e PRD</h2><div id="artifacts"></div><h2>Histórico</h2><ol id="history"></ol></section></div></main></body></html>`;
 
-const css = `:root{font:16px/1.6 system-ui,sans-serif;color:#172b36;background:#f5f6f3}*{box-sizing:border-box}body{margin:0}main{max-width:1200px;margin:auto;padding:clamp(16px,4vw,48px)}h1{font-size:clamp(2rem,5vw,3.5rem);line-height:1.1}h2{margin-top:2rem}.notice{border-left:4px solid #916200;padding:16px;background:#fff5d9}.layout{display:grid;grid-template-columns:minmax(180px,1fr) minmax(0,3fr);gap:32px}fieldset{border:1px solid #bbc6c9;padding:20px;border-radius:8px}label{display:block;margin-top:12px;font-weight:600}input,textarea,select{width:100%;font:inherit;padding:10px;border:1px solid #617580;border-radius:4px;background:white;color:inherit}textarea{min-height:90px;resize:vertical}button{font:inherit;padding:10px 16px;margin:12px 4px 4px 0;border:1px solid #215c60;background:#215c60;color:white;border-radius:4px;cursor:pointer}button:disabled{opacity:.55;cursor:not-allowed}:focus-visible{outline:3px solid #ac4b09;outline-offset:3px}li{margin:12px 0;overflow-wrap:anywhere}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}details{padding:12px;border:1px solid #bbc6c9;margin:12px 0}summary{cursor:pointer;font-weight:600}[hidden]{display:none!important}#status{min-height:2em}#steps li{padding:12px;background:white;border-left:3px solid #215c60}#projects{padding-left:20px}@media(max-width:700px){.layout{grid-template-columns:1fr}main{padding:16px}}`;
+const css = `:root{font:16px/1.6 system-ui,sans-serif;color:#172b36;background:#f5f6f3}*{box-sizing:border-box}body{margin:0}main{max-width:1200px;margin:auto;padding:clamp(16px,4vw,48px)}h1{font-size:clamp(2rem,5vw,3.5rem);line-height:1.1}h2{margin-top:2rem}.notice{border-left:4px solid #916200;padding:16px;background:#fff5d9}.layout{display:grid;grid-template-columns:minmax(180px,1fr) minmax(0,3fr);gap:32px}fieldset{border:1px solid #bbc6c9;padding:20px;border-radius:8px}label{display:block;margin-top:12px;font-weight:600}input,textarea,select{width:100%;font:inherit;padding:10px;border:1px solid #617580;border-radius:4px;background:white;color:inherit}textarea{min-height:90px;resize:vertical}button{font:inherit;padding:10px 16px;margin:12px 4px 4px 0;border:1px solid #215c60;background:#215c60;color:white;border-radius:4px;cursor:pointer}button:disabled{opacity:.55;cursor:not-allowed}:focus-visible{outline:3px solid #ac4b09;outline-offset:3px}li{margin:12px 0;overflow-wrap:anywhere}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}details{padding:12px;border:1px solid #bbc6c9;margin:12px 0}summary{cursor:pointer;font-weight:600}[hidden]{display:none!important}#status{min-height:2em}#journey-source{overflow-wrap:anywhere}#steps li{padding:12px;background:white;border-left:3px solid #215c60}#projects{padding-left:20px}@media(max-width:700px){.layout{grid-template-columns:1fr}main{padding:16px}}`;
 
 const js = String.raw`"use strict";
 (() => {
@@ -21,6 +22,13 @@ const js = String.raw`"use strict";
   const fields = {company:'Empresa',problem:'Problema',audience:'Público',objective:'Objetivo',successMetric:'Indicador de sucesso',scope:'Escopo',outOfScope:'Fora do escopo',requirements:'Requisitos',acceptanceCriteria:'Critérios de aceite',nonFunctional:'Requisitos não funcionais',constraints:'Restrições'};
   const interview = [{key:'company',label:'Como se chama a empresa, marca ou projeto?',hint:'Pode ser o nome provisório. Você poderá alterar depois.'},{key:'problem',label:'Que problema você quer resolver?',hint:'Conte o que acontece hoje e por que isso atrapalha.'},{key:'audience',label:'Quem vai usar ou se beneficiar da solução?',hint:'Descreva as pessoas, equipes ou clientes.'},{key:'objective',label:'O que você gostaria que acontecesse depois?',hint:'Explique o resultado esperado em linguagem simples.'},{key:'successMetric',label:'Como saberemos que deu certo?',hint:'Exemplo: reduzir tempo, aumentar vendas ou evitar retrabalho.'},{key:'scope',label:'O que a primeira versão precisa fazer?',hint:'Liste o essencial para começar.'},{key:'outOfScope',label:'O que pode ficar para depois?',hint:'Registrar isso ajuda a manter o primeiro passo pequeno.'},{key:'requirements',label:'Existe alguma regra ou função obrigatória?',hint:'Inclua integrações, aprovações ou informações necessárias.'},{key:'acceptanceCriteria',label:'Como você confirmará que a solução está pronta?',hint:'Descreva um exemplo que precisa funcionar.'},{key:'nonFunctional',label:'Há exigências de segurança, velocidade ou acesso?',hint:'Se não souber, escreva “não sei ainda”.'},{key:'constraints',label:'O que não pode acontecer?',hint:'Informe prazos, orçamento, leis ou sistemas que precisam ser preservados.'}];
   const states = {not_started:'Não iniciada',in_progress:'Em andamento',blocked:'Bloqueada',awaiting_approval:'Aguardando aprovação',completed:'Concluída',failed:'Falhou'};
+  const journeyGroups = [
+    ['Contexto e caminho principal', {profiles:'Quem usa? Descreva cada perfil',channels:'Em quais canais cada perfil usa o produto?',entry:'Entrada: como cada perfil começa?',preconditions:'Pré-condições: o que precisa existir antes?',mainSteps:'Passos: descreva a sequência de cada perfil',result:'Resultado: o que acontece ao final?'}],
+    ['Alternativas e exceções', {alternatives:'Quais caminhos alternativos existem?',errors:'O que pode dar errado em cada passo?',cancellation:'Como cancelar e o que acontece com os dados?',recovery:'Como recuperar ou retomar após erro ou interrupção?'}],
+    ['Acesso, dados e telas', {permissions:'Quem pode executar cada passo?',data:'Quais dados são coletados em cada ponto?',states:'Estados de cada tela: carregamento, vazio, sucesso e erro'}],
+    ['Medição e abandono', {analytics:'Quais eventos de analytics devem ser registrados e em que ponto?',abandonment:'Onde cada perfil pode abandonar a jornada?'}],
+  ];
+  const journeyKeys = journeyGroups.flatMap(([,fields]) => Object.keys(fields));
   const uuid = /^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/i;
   let context = null, current = null, action = null, busy = false, pending = null, interviewIndex = 0, interviewAnswers = {}, interviewComplete = false;
   let interviewVersion = null, interviewRemoteReady = false, interviewQueue = Promise.resolve(), interviewGeneration = 0, interviewDirty = false, interviewNotice = '';
@@ -35,6 +43,17 @@ const js = String.raw`"use strict";
     const t = document.createElement('textarea'); t.id = 'brief-' + key; t.maxLength = 4000;
     $('fields').append(l,t);
   }
+  for (const [title,fields] of journeyGroups) {
+    const group = document.createElement('fieldset'); group.append(node('legend',title));
+    for (const [key,label] of Object.entries(fields)) {
+      const l = node('label',label); l.htmlFor = 'journey-' + key;
+      const t = document.createElement('textarea'); t.id = 'journey-' + key; t.maxLength = 2000;
+      group.append(l,t);
+    }
+    $('journey-fields').append(group);
+  }
+  function journeyArtifact() { return current && [...current.artifacts].reverse().find(a => a.stepId === 'journey' && a.revision === current.briefingRevision); }
+  function journeySource() { return current && [...current.artifacts].reverse().find(a => a.stepId === 'prd' && a.revision === current.briefingRevision && a.verification === 'human_review'); }
   $('tenant').value = '00000000-0000-0000-0000-000000000010';
   $('actor').value = '00000000-0000-0000-0000-000000000001';
   function approved() { return current && current.steps.some(s => s.id === 'prd' && s.state === 'completed'); }
@@ -45,6 +64,8 @@ const js = String.raw`"use strict";
     $('new').disabled = locked || !context;
     $('name').disabled = !!current; $('kind').disabled = !!current;
     $('run').disabled = locked; $('approve').disabled = locked; $('reason').disabled = locked;
+    $('journey-editor').disabled = locked || !approved() || !!(current && current.steps.some(s => s.id === 'journey' && s.state === 'completed'));
+    $('journey-approve').disabled = locked; $('journey-reason').disabled = locked;
     $('retry').hidden = !pending; $('retry').disabled = busy;
     for (const b of $('projects').querySelectorAll('button')) b.disabled = locked;
   }
@@ -59,6 +80,12 @@ const js = String.raw`"use strict";
     $('next').textContent = (action ? action.reason : 'Nenhuma ação disponível') + (approved() ? ' PRD aprovado. Para alterar o briefing, crie uma nova mudança.' : '');
     $('run').hidden = !(action && action.type === 'run_step' && ['discovery','prd'].includes(action.stepId));
     $('approval').hidden = !(action && action.type === 'approve_prd');
+    $('journey-section').hidden = !approved();
+    $('journey-approval').hidden = !(action && action.type === 'approve_journey');
+    const source = journeySource(), draft = journeyArtifact();
+    $('journey-source').textContent = source ? 'PRD fonte: ' + source.id + ' · SHA-256: ' + source.sha256 : 'PRD aprovado vigente indisponível';
+    for (const key of journeyKeys) $('journey-' + key).value = draft && draft.journeyInput ? draft.journeyInput.journey[key] || '' : '';
+    $('journey-reason').value = '';
     $('steps').replaceChildren();
     for (const step of current.steps) {
       const li = node('li',step.title + ' — ' + (states[step.state] || step.state) + ' · tentativas: ' + step.attempts);
@@ -70,7 +97,8 @@ const js = String.raw`"use strict";
     if (!current.artifacts.length) $('artifacts').append(node('p','Nenhuma evidência registrada.'));
     for (const artifact of current.artifacts) {
       const d = document.createElement('details');
-      d.append(node('summary',artifact.stepId + ' · revisão ' + artifact.revision + ' · ' + artifact.verification + (artifact.revision === current.briefingRevision ? ' · vigente' : ' · histórica')),
+      const latest = artifact.revision === current.briefingRevision && (artifact.stepId !== 'journey' || artifact.id === (draft && draft.id));
+      d.append(node('summary',artifact.stepId + ' · revisão ' + artifact.revision + ' · ' + artifact.verification + (latest ? ' · vigente' : ' · histórica')),
         node('pre',artifact.content),node('p','SHA-256: ' + artifact.sha256),node('p','Criado por ' + artifact.createdBy + ' em ' + artifact.createdAt));
       if (artifact.approvedBy) d.append(node('p','Aprovado por ' + artifact.approvedBy + ': ' + artifact.approvalReason));
       $('artifacts').append(d);
@@ -147,6 +175,7 @@ const js = String.raw`"use strict";
     interviewGeneration += 1;
     interviewDirty = false; interviewNotice = '';
     current = null; action = null; $('briefing-form').reset(); $('approval').reset();
+    $('journey-section').hidden = true; $('journey-approval').hidden = true; $('journey-form').reset(); $('journey-reason').value = '';
     interviewIndex = 0; interviewAnswers = {}; interviewComplete = false; renderInterview();
     $('title').textContent = 'Novo projeto ou mudança'; $('save').textContent = 'Criar projeto';
     $('next').textContent = 'Salve o briefing para iniciar.'; $('run').hidden = true; $('approval').hidden = true;
@@ -186,6 +215,18 @@ const js = String.raw`"use strict";
   });
   $('run').addEventListener('click',() => { if (action && action.type === 'run_step' && ['discovery','prd'].includes(action.stepId)) mutate({type:'run_step',stepId:action.stepId}); });
   $('approval').addEventListener('submit',event => { event.preventDefault(); const reason = $('reason').value.trim(); if (action && action.type === 'approve_prd' && reason) mutate({type:'approve_prd',reason}); });
+  $('journey-form').addEventListener('submit',event => {
+    event.preventDefault(); const source = journeySource();
+    if (!source || !action || !['submit_journey','approve_journey'].includes(action.type)) return;
+    const journey = Object.fromEntries(journeyKeys.map(key => [key,$('journey-' + key).value.trim()]));
+    mutate({type:'submit_journey',journey,sourcePrdId:source.id,sourcePrdHash:source.sha256});
+  });
+  $('journey-approval').addEventListener('submit',event => {
+    event.preventDefault(); const source = journeySource(), draft = journeyArtifact(), reason = $('journey-reason').value.trim();
+    if (!source || !draft || !reason || !action || action.type !== 'approve_journey') return;
+    if (journeyKeys.some(key => $('journey-' + key).value.trim() !== draft.journeyInput.journey[key])) { message('Salve as alterações da jornada antes de aprovar.'); return; }
+    mutate({type:'approve_journey',artifactId:draft.id,sourcePrdId:source.id,sourcePrdHash:source.sha256,reason});
+  });
   $('retry').addEventListener('click',() => { if (pending) send(pending); });
   window.addEventListener('beforeunload',event => { if (pending) { event.preventDefault(); event.returnValue = ''; } });
 })();`;
@@ -201,7 +242,7 @@ export function registerWorkflowUi(app: FastifyInstance): void {
       reply.headers({
         "cache-control": "no-store, max-age=0",
         "content-security-policy":
-          "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+          "default-src 'none'; img-src data:; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
         "x-content-type-options": "nosniff",
         "referrer-policy": "no-referrer",
       });

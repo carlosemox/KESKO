@@ -1,25 +1,69 @@
-import type { FastifyRequest } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { DomainError } from "../contracts/errors.v1.js";
 import type { TenantContext } from "../contracts/tenancy.v1.js";
+import { USER_UUID, type IdentityVerifier } from "./jwt-verifier.js";
+import { isLocalRequest } from "./local-boundary.js";
+import { sendError } from "./errors.js";
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const identities = new WeakMap<FastifyRequest, TenantContext>();
 
-export function userContextFromRequest(request: FastifyRequest): TenantContext {
+export function registerIdentityHook(
+  app: FastifyInstance,
+  verifier?: IdentityVerifier,
+): void {
+  app.addHook("onRequest", async (request, reply) => {
+    if (!isLocalRequest(request)) {
+      return reply
+        .header("cache-control", "no-store")
+        .code(404)
+        .send({ error: "Not found" });
+    }
+    try {
+      await resolveRequestIdentity(request, verifier);
+    } catch (error) {
+      reply.header("cache-control", "no-store");
+      sendError(reply, error);
+      return reply;
+    }
+  });
+}
+
+export async function resolveRequestIdentity(
+  request: FastifyRequest,
+  verifier?: IdentityVerifier,
+): Promise<void> {
+  identities.delete(request);
   const header = request.headers.authorization;
-  if (!header || !header.startsWith("Bearer ")) {
-    throw new DomainError("UNAUTHENTICATED", "Authentication is required");
+  // Public UI routes may omit credentials. Protected routes still require state.
+  if (header === undefined) return;
+  const match = /^Bearer ([^\s]+)$/i.exec(header);
+  if (!match) {
+    throw new DomainError("UNAUTHENTICATED", "The bearer identity is invalid");
   }
-
-  const token = header.slice("Bearer ".length).trim();
+  const token = match[1];
+  if (verifier) {
+    identities.set(request, await verifier(token));
+    return;
+  }
   if (
-    process.env.NODE_ENV === "production" ||
+    !["development", "test"].includes(process.env.NODE_ENV ?? "") ||
+    !isLocalRequest(request) ||
     !token.startsWith("local:") ||
-    !UUID.test(token.slice("local:".length))
+    !USER_UUID.test(token.slice("local:".length))
   ) {
     throw new DomainError("UNAUTHENTICATED", "The bearer identity is invalid");
   }
+  identities.set(request, {
+    authenticated: true,
+    userId: token.slice("local:".length),
+  });
+}
 
-  return { authenticated: true, userId: token.slice("local:".length) };
+export function userContextFromRequest(request: FastifyRequest): TenantContext {
+  const context = identities.get(request);
+  if (!context)
+    throw new DomainError("UNAUTHENTICATED", "Authentication is required");
+  return { ...context };
 }
 
 export function tenantContext(

@@ -7,6 +7,8 @@ import {
   validateCreate,
   validateCommand,
   validateInterviewDraft,
+  journeyFields,
+  validateJourney,
 } from "../../../src/workflow/model.js";
 
 const actor = "00000000-0000-0000-0000-000000000001";
@@ -86,7 +88,7 @@ describe("development workflow gates", () => {
     );
     expect(approved.steps[1].state).toBe("completed");
     expect(nextAction(approved)).toMatchObject({
-      type: "blocked",
+      type: "submit_journey",
       stepId: "journey",
     });
     const blocked = run(approved, "journey");
@@ -189,7 +191,7 @@ describe("development workflow gates", () => {
       actor,
       now,
     );
-    expect(nextAction(approved).type).toBe("blocked");
+    expect(nextAction(approved).type).toBe("submit_journey");
   });
   it("does not mutate its input or approve evidence as a side effect of execution", () => {
     const initial = create();
@@ -199,5 +201,178 @@ describe("development workflow gates", () => {
     const draft = run(run(initial, "discovery"), "prd");
     expect(draft.artifacts.every((a) => !a.approvedBy)).toBe(true);
     expect(() => run(draft, "prd")).toThrow(/executada/);
+  });
+});
+
+describe("human journey", () => {
+  const approvedPrd = () =>
+    applyCommand(
+      run(run(create(), "discovery"), "prd"),
+      { type: "approve_prd", reason: "Reviewed" },
+      actor,
+      now,
+    );
+  const source = (p: ReturnType<typeof create>) => ({
+    sourcePrdId: p.artifacts[1].id,
+    sourcePrdHash: p.artifacts[1].sha256,
+  });
+  const complete = () =>
+    validateJourney(
+      Object.fromEntries(
+        journeyFields.map((k) => [k, `Human answer for ${k}`]),
+      ),
+    );
+  const submit = (p: ReturnType<typeof create>, journey = complete()) =>
+    applyCommand(
+      p,
+      { type: "submit_journey", ...source(p), journey },
+      actor,
+      now,
+    );
+  const approve = (p: ReturnType<typeof create>) =>
+    applyCommand(
+      p,
+      {
+        type: "approve_journey",
+        ...source(p),
+        artifactId: p.artifacts.at(-1)!.id,
+        reason: "All paths reviewed",
+      },
+      actor,
+      now,
+    );
+  it("saves partial progress, retains history and requires complete human review", () => {
+    const p = approvedPrd();
+    const partial = submit(p, validateJourney({ profiles: "Equipe" }));
+    expect(partial.artifacts.at(-1)?.journeyInput?.journey.entry).toBe("");
+    expect(nextAction(partial).type).toBe("approve_journey");
+    expect(() => approve(partial)).toThrow(/insuficientes/);
+    const draft = submit(partial);
+    expect(draft.artifacts.slice(0, -1)).toEqual(partial.artifacts);
+    expect(draft.artifacts.at(-1)?.approvedBy).toBeUndefined();
+    const artifact = draft.artifacts.at(-1)!;
+    expect(JSON.parse(artifact.content)).toEqual(artifact.journeyInput);
+    expect(artifact.sha256).toBe(
+      createHash("sha256").update(artifact.content, "utf8").digest("hex"),
+    );
+    expect(artifact.journeyInput).toMatchObject({
+      ...source(p),
+      authorship: "human",
+    });
+    const approved = approve(draft);
+    expect(approved.schemaVersion).toBe(1);
+    expect(approved.steps.map((s) => s.id)).toEqual(p.steps.map((s) => s.id));
+    expect(nextAction(approved)).toMatchObject({
+      type: "blocked",
+      stepId: "design",
+    });
+    expect(approved.steps[3].state).toBe("blocked");
+    expect(approved.artifacts.at(-1)).toMatchObject({
+      verification: "human_review",
+      approvedBy: actor,
+    });
+    expect(() => submit(approved)).toThrow(/imutável/);
+    expect(() => approve(approved)).toThrow(/imutável/);
+  });
+  it("rejects insufficient answers, stale sources and obsolete approval targets", () => {
+    const p = approvedPrd();
+    const draft = submit(p);
+    expect(() =>
+      approve(submit(p, { ...complete(), errors: "DADO INSUFICIENTE" })),
+    ).toThrow();
+    const revised = submit(draft);
+    expect(() =>
+      applyCommand(
+        revised,
+        {
+          type: "approve_journey",
+          ...source(p),
+          artifactId: draft.artifacts.at(-1)!.id,
+          reason: "Review",
+        },
+        actor,
+        now,
+      ),
+    ).toThrow(/vigente/);
+    for (const changed of [
+      { sourcePrdId: id },
+      { sourcePrdHash: "a".repeat(64) },
+    ]) {
+      expect(() =>
+        applyCommand(
+          p,
+          {
+            type: "submit_journey",
+            ...source(p),
+            ...changed,
+            journey: complete(),
+          },
+          actor,
+          now,
+        ),
+      ).toThrow(/fonte/);
+      expect(() =>
+        applyCommand(
+          draft,
+          {
+            type: "approve_journey",
+            ...source(p),
+            ...changed,
+            artifactId: draft.artifacts.at(-1)!.id,
+            reason: "Review",
+          },
+          actor,
+          now,
+        ),
+      ).toThrow(/fonte/);
+    }
+    expect(() =>
+      applyCommand(
+        run(run(create(), "discovery"), "prd"),
+        { type: "submit_journey", ...source(p), journey: complete() },
+        actor,
+        now,
+      ),
+    ).toThrow(/fonte/);
+  });
+  it("bounds fields, command bytes and command-specific input without accepting claimed authorship", () => {
+    const base = {
+      type: "submit_journey",
+      ...source(approvedPrd()),
+      operationId: id,
+      expectedVersion: 4,
+      journey: { profiles: "Equipe" },
+    };
+    expect(validateCommand(base)).toMatchObject({
+      journey: { profiles: "Equipe", entry: "" },
+    });
+    for (const journey of [
+      { profiles: "x".repeat(2001) },
+      { profiles: 42 },
+      { authorship: "ai" },
+    ])
+      expect(() => validateCommand({ ...base, journey })).toThrow();
+    expect(() =>
+      validateCommand({ ...base, reason: "autoapproval" }),
+    ).toThrow();
+    expect(() => validateCommand({ ...base, sourcePrdHash: "bad" })).toThrow();
+    expect(() =>
+      validateCommand({
+        ...base,
+        journey: Object.fromEntries(
+          journeyFields.map((k) => [k, "界".repeat(2000)]),
+        ),
+      }),
+    ).toThrow(/64 KiB/);
+    expect(() =>
+      validateCommand({
+        type: "approve_journey",
+        ...source(approvedPrd()),
+        operationId: id,
+        expectedVersion: 4,
+        artifactId: id,
+        reason: "",
+      }),
+    ).toThrow();
   });
 });
