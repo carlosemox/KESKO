@@ -1,4 +1,7 @@
 import Fastify, { type FastifyInstance } from "fastify";
+import { registerWorkflowRoutes } from "./workflow/routes.js";
+import { registerWorkflowUi } from "./workflow/ui.js";
+import { isLocalRequest } from "./http/local-boundary.js";
 import { createDbPool } from "./db/client.js";
 import { createBrand, listBrands } from "./db/brand-repository.js";
 import {
@@ -38,7 +41,17 @@ export function buildApp(
         listBrands(pool, context, tenantId),
     } satisfies TenantRouteRepositories);
   const app = Fastify({ logger: options.logger ?? false });
+  app.addHook("onRequest", async (request, reply) => {
+    if (!isLocalRequest(request)) {
+      return reply
+        .header("cache-control", "no-store")
+        .code(404)
+        .send({ error: "Not found" });
+    }
+  });
   registerTenantRoutes(app, repositories);
+  registerWorkflowRoutes(app, pool);
+  registerWorkflowUi(app);
   app.addHook("onClose", async () => {
     await pool.end();
   });
