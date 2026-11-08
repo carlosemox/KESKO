@@ -1,0 +1,15 @@
+# Keep local and CI dependency layouts consistent. Verification must not install.
+enableGlobalVirtualStore: false
+verifyDepsBeforeRun: error
+minimumReleaseAgeExclude:
+  - '@supabase/cli-darwin-arm64@2.119.0'
+  - '@supabase/cli-darwin-x64@2.119.0'
+  - '@supabase/cli-linux-arm64-musl@2.119.0'
+  - '@supabase/cli-linux-arm64@2.119.0'
+  - '@supabase/cli-linux-x64-musl@2.119.0'
+  - '@supabase/cli-linux-x64@2.119.0'
+  - '@supabase/cli-windows-arm64@2.119.0'
+  - '@supabase/cli-windows-x64@2.119.0'
+  - supabase@2.119.0
+overrides:
+  source-map-js: 1.2.2

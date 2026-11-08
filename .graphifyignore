@@ -1,0 +1,17 @@
+.git/
+node_modules/
+dist/
+coverage/
+.agents/
+.specify/
+.codex/
+.claude/
+.harness/
+.pnpm-store/
+graphify-out/
+.env
+.env.*
+*.pem
+*.key
+*.log
+pnpm-lock.yaml

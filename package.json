@@ -1,0 +1,44 @@
+{
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "verify": "corepack pnpm lint && corepack pnpm quality:rules && corepack pnpm quality:measure && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build",
+    "quality:rules": "node scripts/verify-quality-rules.mjs",
+    "quality:measure": "eslint scripts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit --noUnusedLocals --noUnusedParameters && eslint src tests && prettier --check src tests scripts *.json vitest.config.ts playwright.config.ts eslint.config.mjs",
+    "format": "prettier --write src tests scripts *.json vitest.config.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "test:postgres": "node scripts/test-postgres.mjs",
+    "test:browser": "corepack pnpm build && node scripts/test-postgres.mjs --browser",
+    "start:local": "node dist/server.js",
+    "demo:workflow": "corepack pnpm build && node scripts/test-postgres.mjs --serve",
+    "harness:once": "node scripts/harness/supervisor.mjs once",
+    "harness:run": "node scripts/harness/supervisor.mjs run",
+    "harness:stop": "node scripts/harness/supervisor.mjs stop",
+    "harness:resume": "node scripts/harness/supervisor.mjs resume",
+    "harness:preflight": "sh scripts/harness/preflight.sh",
+    "harness:verify": "sh scripts/harness/verify.sh",
+    "harness:security": "sh scripts/harness/security-check.sh",
+    "harness:evidence": "sh scripts/harness/evidence.sh",
+    "harness:install-launchd": "node scripts/harness/install-launchd.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/node": "26.6.4",
+    "@types/pg": "^8.23.1",
+    "eslint": "10.13.0",
+    "prettier": "3.6.2",
+    "supabase": "2.119.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.2",
+    "vitest": "5.0.3"
+  },
+  "dependencies": {
+    "fastify": "5.12.5",
+    "jose": "6.2.12",
+    "pg": "^8.23.0"
+  }
+}
